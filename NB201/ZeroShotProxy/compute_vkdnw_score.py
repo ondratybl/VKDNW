@@ -1,7 +1,9 @@
 import os, sys
 
-from functorch import make_functional_with_buffers, vmap, jacrev
+from functorch import make_functional_with_buffers
 from scipy.stats import chisquare
+
+from torch.func import jacrev, vmap
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import torch
