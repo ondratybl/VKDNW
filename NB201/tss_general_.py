@@ -225,8 +225,7 @@ else:
 # archs, results = search_find_best(xargs, train_loader, archs=all_archs)
 
 ####
-for zero_shot_score in ['az_nas', 'gradsign', 'zico',
-                        'zen','gradnorm','naswot','synflow','snip','grasp','te_nas']:
+for zero_shot_score in ['vkdnw', 'az_nas', 'gradsign', 'zico', 'zen','gradnorm','naswot','synflow','snip','grasp','te_nas']:
     xargs.zero_shot_score = zero_shot_score
     result_path = "./{}_all_arch.pickle".format(xargs.zero_shot_score)
     if os.path.exists(result_path):

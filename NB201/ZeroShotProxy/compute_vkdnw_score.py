@@ -205,16 +205,16 @@ def get_jacobian_index(model, input, param_idx):
 def get_jacobian_index(model, input, param_idx):
     model.zero_grad()
 
-    params_grad = {k: v.flatten()[idx:idx+1].detach() for (k, v), idx in zip(model.named_parameters(), param_idx)}
+    params_grad = {k: v.flatten()[param_idx:param_idx+1].detach() for k, v in model.named_parameters()}
     buffers = {k: v.detach() for k, v in model.named_buffers()}
 
     def jacobian_sample(sample):
         def compute_prediction(params_grad_tmp):
             params = {k: v.detach() for k, v in model.named_parameters()}
-            for (k, v), idx in zip(params_grad_tmp.items(), param_idx):
+            for k, v in params_grad_tmp.items():
                 param_shape = params[k].shape
                 param = params[k].flatten()
-                param[idx:idx+1] = v
+                param[param_idx:param_idx+1] = v
                 params[k] = param.reshape(param_shape)
 
             return functional_call(model, (params, buffers), (sample.unsqueeze(0),)).squeeze(0)
