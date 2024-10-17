@@ -54,7 +54,7 @@ def eval_score(jacob, labels=None):
     k = 1e-5
     return -np.sum(np.log(v + k) + 1.0 / (v + k))
 
-def compute_jacov_score(model, gpu, trainloader, resolution, batch_size, mixup_gamma=1e-2, repeat=1, fp16=False):
+def compute_nas_score(model, gpu, trainloader, resolution, batch_size, mixup_gamma=1e-2, repeat=1, fp16=False):
     model.train()
     model.cuda()
     info = {}
