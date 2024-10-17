@@ -218,7 +218,7 @@ if __name__ == '__main__':
 
     device = torch.device('cuda:{}'.format(xargs.gpu))
 
-    real_input_metrics = ['vkdnw', 'zico', 'snip', 'grasp', 'te_nas', 'gradsign']
+    real_input_metrics = ['vkdnw', 'zico', 'snip', 'grasp', 'te_nas', 'gradsign', 'jacov']
 
 
     if os.path.exists("./tss_all_arch.pickle"):
@@ -229,7 +229,7 @@ if __name__ == '__main__':
         with open("./tss_all_arch.pickle", "wb") as fp:
             pickle.dump(all_archs, fp)
 
-    for zero_shot_score in ['vkdnw', 'az_nas', 'gradsign', 'zico', 'zen','gradnorm','naswot','synflow','snip','grasp','te_nas']:
+    for zero_shot_score in ['jacov', 'vkdnw', 'az_nas', 'gradsign', 'zico', 'zen','gradnorm','naswot','synflow','snip','grasp','te_nas']:
         xargs.zero_shot_score = zero_shot_score
         result_path = "./{}_all_arch.pickle".format(xargs.zero_shot_score)
         if os.path.exists(result_path):
