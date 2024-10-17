@@ -40,7 +40,7 @@ def get_batch_jacobian(net, x, target):
 
     x.requires_grad_(True)
 
-    y = net(x)
+    y = net(x)[1]  # TinyModel has two outputs
 
     y.backward(torch.ones_like(y))
     jacob = x.grad.detach()
