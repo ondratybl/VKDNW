@@ -218,7 +218,7 @@ if __name__ == '__main__':
 
     device = torch.device('cuda:{}'.format(xargs.gpu))
 
-    real_input_metrics = ['zico', 'snip', 'grasp', 'te_nas', 'gradsign']
+    real_input_metrics = ['vkdnw', 'zico', 'snip', 'grasp', 'te_nas', 'gradsign']
 
 
     if os.path.exists("./tss_all_arch.pickle"):

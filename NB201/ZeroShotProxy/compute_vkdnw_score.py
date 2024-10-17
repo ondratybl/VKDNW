@@ -265,14 +265,13 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
     info = {'vkdnw_dim': float(len(list(model.named_parameters())))}
 
     #Chisquare
-    lambdas = lambdas.cpu().numpy()
     bin_edges = [1]
     for i in range(18):
         bin_edges.append(bin_edges[-1] / 10)
     bin_edges.append(0)
     bin_edges = bin_edges[::-1]
 
-    f_obs, _ = np.histogram(lambdas, bins=bin_edges)
+    f_obs, _ = np.histogram(lambdas.cpu().numpy(), bins=bin_edges)
     info['vkdnw_chisquare'] = chisquare(f_obs).statistic
 
     # Eigenvectors
