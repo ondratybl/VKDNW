@@ -57,44 +57,6 @@ parser.add_argument("--api_data_path", type=str, default="/mnt/personal/tyblondr
 parser.add_argument("--save_dir", type=str, default='./results/tmp', help="Folder to save checkpoints and log.")
 parser.add_argument('--zero_shot_score', type=str, default='vkdnw', choices=['az_nas','zico','zen','gradnorm','naswot','synflow','snip','grasp','te_nas','gradsign'])
 parser.add_argument("--rand_seed", type=int, default=1, help="manual seed (we use 1-to-5)")
-args = parser.parse_args(args=[])
-
-if args.rand_seed is None or args.rand_seed < 0:
-    args.rand_seed = random.randint(1, 100000)
-
-print(args.rand_seed)
-print(args)
-xargs=args
-
-assert torch.cuda.is_available(), "CUDA is not available."
-torch.backends.cudnn.enabled = True
-torch.backends.cudnn.benchmark = False
-torch.backends.cudnn.deterministic = True
-torch.set_num_threads(xargs.workers)
-prepare_seed(xargs.rand_seed)
-logger = prepare_logger(args)
-
-## API
-api = create(xargs.api_data_path, xargs.search_space, fast_mode=True, verbose=False)
-logger.log("Create API = {:} done".format(api))
-
-## data
-train_data, valid_data, xshape, class_num = get_datasets(xargs.dataset, xargs.data_path, -1)
-config = load_config(xargs.config_path, {"class_num": class_num, "xshape": xshape}, logger)
-search_loader, train_loader, valid_loader = get_nas_search_loaders(train_data,
-                                                                   valid_data,
-                                                                   xargs.dataset,
-                                                                   "./configs/nas-benchmark/",
-                                                                   (config.batch_size, config.test_batch_size),
-                                                                   xargs.workers,)
-logger.log("||||||| {:10s} ||||||| Search-Loader-Num={:}, Valid-Loader-Num={:}, batch size={:}".format(xargs.dataset, len(search_loader), len(valid_loader), config.batch_size))
-logger.log("||||||| {:10s} ||||||| Config={:}".format(xargs.dataset, config))
-
-## model
-search_space = get_search_spaces(xargs.search_space, "nats-bench")
-logger.log("search space : {:}".format(search_space))
-
-device = torch.device('cuda:{}'.format(xargs.gpu))
 
 
 def random_genotype(max_nodes, op_names):
@@ -110,10 +72,7 @@ def random_genotype(max_nodes, op_names):
     return arch
 
 
-real_input_metrics = ['zico', 'snip', 'grasp', 'te_nas', 'gradsign']
-
-
-def search_find_best(xargs, xloader, n_samples=None, archs=None):
+def search_find_best(xargs, xloader, train_loader, n_samples=None, archs=None):
     logger.log("Searching with {}".format(xargs.zero_shot_score.lower()))
     score_fn_name = "compute_{}_score".format(xargs.zero_shot_score.lower())
     score_fn = globals().get(score_fn_name)
@@ -214,26 +173,71 @@ def generate_all_archs(search_space, xargs):
     archs = arch.gen_all(search_space, xargs.max_nodes, False)
     return archs
 
-if os.path.exists("./tss_all_arch.pickle"):
-    with open("./tss_all_arch.pickle", "rb") as fp:
-        all_archs = pickle.load(fp)
-else:
-    all_archs = generate_all_archs(search_space, xargs)
-    with open("./tss_all_arch.pickle", "wb") as fp:
-        pickle.dump(all_archs, fp)
+if __name__ == '__main__':
 
-# archs, results = search_find_best(xargs, train_loader, archs=all_archs)
+    args = parser.parse_args(args=[])
 
-####
-for zero_shot_score in ['vkdnw', 'az_nas', 'gradsign', 'zico', 'zen','gradnorm','naswot','synflow','snip','grasp','te_nas']:
-    xargs.zero_shot_score = zero_shot_score
-    result_path = "./{}_all_arch.pickle".format(xargs.zero_shot_score)
-    if os.path.exists(result_path):
-        print("results already exists")
-        with open(result_path, "rb") as fp:
-            results = pickle.load(fp)
-        archs = all_archs
+    if args.rand_seed is None or args.rand_seed < 0:
+        args.rand_seed = random.randint(1, 100000)
+
+    print(args.rand_seed)
+    print(args)
+    xargs = args
+
+    assert torch.cuda.is_available(), "CUDA is not available."
+    torch.backends.cudnn.enabled = True
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+    torch.set_num_threads(xargs.workers)
+    prepare_seed(xargs.rand_seed)
+    logger = prepare_logger(args)
+
+    ## API
+    api = create(xargs.api_data_path, xargs.search_space, fast_mode=True, verbose=False)
+    logger.log("Create API = {:} done".format(api))
+
+    ## data
+    train_data, valid_data, xshape, class_num = get_datasets(xargs.dataset, xargs.data_path, -1)
+    config = load_config(xargs.config_path, {"class_num": class_num, "xshape": xshape}, logger)
+    search_loader, train_loader, valid_loader = get_nas_search_loaders(train_data,
+                                                                       valid_data,
+                                                                       xargs.dataset,
+                                                                       "./configs/nas-benchmark/",
+                                                                       (config.batch_size, config.test_batch_size),
+                                                                       xargs.workers, )
+    logger.log(
+        "||||||| {:10s} ||||||| Search-Loader-Num={:}, Valid-Loader-Num={:}, batch size={:}".format(xargs.dataset,
+                                                                                                    len(search_loader),
+                                                                                                    len(valid_loader),
+                                                                                                    config.batch_size))
+    logger.log("||||||| {:10s} ||||||| Config={:}".format(xargs.dataset, config))
+
+    ## model
+    search_space = get_search_spaces(xargs.search_space, "nats-bench")
+    logger.log("search space : {:}".format(search_space))
+
+    device = torch.device('cuda:{}'.format(xargs.gpu))
+
+    real_input_metrics = ['zico', 'snip', 'grasp', 'te_nas', 'gradsign']
+
+
+    if os.path.exists("./tss_all_arch.pickle"):
+        with open("./tss_all_arch.pickle", "rb") as fp:
+            all_archs = pickle.load(fp)
     else:
-        archs, results = search_find_best(xargs, train_loader, archs=all_archs)
-        with open(result_path, "wb") as fp:
-            pickle.dump(results, fp)
+        all_archs = generate_all_archs(search_space, xargs)
+        with open("./tss_all_arch.pickle", "wb") as fp:
+            pickle.dump(all_archs, fp)
+
+    for zero_shot_score in ['vkdnw', 'az_nas', 'gradsign', 'zico', 'zen','gradnorm','naswot','synflow','snip','grasp','te_nas']:
+        xargs.zero_shot_score = zero_shot_score
+        result_path = "./{}_all_arch.pickle".format(xargs.zero_shot_score)
+        if os.path.exists(result_path):
+            print("results already exists")
+            with open(result_path, "rb") as fp:
+                results = pickle.load(fp)
+            archs = all_archs
+        else:
+            archs, results = search_find_best(xargs, train_loader, train_loader, archs=all_archs)
+            with open(result_path, "wb") as fp:
+                pickle.dump(results, fp)

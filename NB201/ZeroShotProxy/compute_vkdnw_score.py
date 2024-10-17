@@ -217,7 +217,7 @@ def get_jacobian_index(model, input, param_idx):
                 param[param_idx:param_idx+1] = v
                 params[k] = param.reshape(param_shape)
 
-            return functional_call(model, (params, buffers), (sample.unsqueeze(0),)).squeeze(0)
+            return functional_call(model, (params, buffers), (sample.unsqueeze(0),))[1].squeeze(0)
 
         return jacrev(compute_prediction)(params_grad)
 
