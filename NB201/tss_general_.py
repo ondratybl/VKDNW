@@ -229,7 +229,7 @@ if __name__ == '__main__':
         with open("./tss_all_arch.pickle", "wb") as fp:
             pickle.dump(all_archs, fp)
 
-    for zero_shot_score in ['jacov', 'vkdnw', 'az_nas', 'gradsign', 'zico', 'zen','gradnorm','naswot','synflow','snip','grasp','te_nas']:
+    for zero_shot_score in ['jacov', 'az_nas', 'gradsign', 'zico', 'zen','gradnorm','naswot','synflow','snip','grasp','te_nas', 'vkdnw']:
         xargs.zero_shot_score = zero_shot_score
         result_path = "./{}_all_arch.pickle".format(xargs.zero_shot_score)
         if os.path.exists(result_path):
