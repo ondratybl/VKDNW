@@ -75,7 +75,7 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size):
     # network_weight_gaussian_init(model)
     init_model(model, 'kaiming_norm_fanin')
     input = next(iter(trainloader))
-    if type(input) == tuple:
+    if type(input) == list:
         input = input[0]
     if gpu is not None:
         input = input.clone().cuda(device=torch.device('cuda:{}'.format(gpu)), non_blocking=True)

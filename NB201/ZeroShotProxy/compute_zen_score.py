@@ -57,7 +57,7 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, mixup_gam
             trainiterator = iter(trainloader)
             input = next(trainiterator)
             input2 = next(trainiterator)
-            if type(input) == tuple:
+            if type(input) == list:
                 input = input[0]
                 input2 = input2[0]
             input = input.to(device)
