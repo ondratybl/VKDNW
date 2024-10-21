@@ -55,11 +55,13 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, mixup_gam
             network_weight_gaussian_init(model)
 
             trainiterator = iter(trainloader)
-            input = next(trainiterator).to(device)
-            input2 = next(trainiterator).to(device)
+            input = next(trainiterator)
+            input2 = next(trainiterator)
             if type(input) == tuple:
                 input = input[0]
                 input2 = input2[0]
+            input = input.to(device)
+            input2 = input2.to(device)
             mixup_input = input + mixup_gamma * input2
             output = model.forward_pre_GAP(input)
             mixup_output = model.forward_pre_GAP(mixup_input)
