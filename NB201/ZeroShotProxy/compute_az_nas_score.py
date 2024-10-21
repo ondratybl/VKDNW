@@ -126,7 +126,10 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
     input_ = next(iter(trainloader))
     if type(input_) == tuple:
         input_ = input_[0]
-    input_ = input_.to(device)
+    if gpu is not None:
+        input_ = input_.clone().cuda(device=device, non_blocking=True)
+    else:
+        input_ = input_.clone()
     
     layer_features = model.extract_cell_features(input_)
 
