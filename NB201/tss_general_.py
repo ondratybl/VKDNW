@@ -25,6 +25,40 @@ from ZeroShotProxy import *
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
+parser = argparse.ArgumentParser("Training-free NAS on NAS-Bench-201 (NATS-Bench-TSS)")
+parser.add_argument("--data_path", type=str, default='./cifar.python', help="The path to dataset")
+parser.add_argument("--dataset", type=str, default='cifar10', choices=["cifar10", "cifar100", "ImageNet16-120"],
+                    help="Choose between Cifar10/100 and ImageNet-16.")
+
+# channels and number-of-cells
+parser.add_argument("--search_space", type=str, default='tss', help="The search space name.")
+parser.add_argument("--config_path", type=str, default='./configs/nas-benchmark/algos/weight-sharing.config',
+                    help="The path to the configuration.")
+parser.add_argument("--max_nodes", type=int, default=4, help="The maximum number of nodes.")
+parser.add_argument("--channel", type=int, default=16, help="The number of channels.")
+parser.add_argument("--num_cells", type=int, default=5, help="The number of cells in one stage.")
+parser.add_argument("--affine", type=int, default=1, choices=[0, 1],
+                    help="Whether use affine=True or False in the BN layer.")
+parser.add_argument("--track_running_stats", type=int, default=0, choices=[0, 1],
+                    help="Whether use track_running_stats or not in the BN layer.")
+
+# log
+parser.add_argument("--print_freq", type=int, default=200, help="print frequency (default: 200)")
+
+# custom
+parser.add_argument("--gpu", type=int, default=0, help="")
+parser.add_argument("--workers", type=int, default=4, help="number of data loading workers")
+# parser.add_argument("--api_data_path", type=str, default="/mnt/personal/tyblondr/NATS-tss-v1_0-3ffb9-full/data/NATS-tss-v1_0-3ffb9-full", help="")
+parser.add_argument("--api_data_path", type=str, default="/mnt/personal/tyblondr/NATS-tss-v1_0-3ffb9-simple/",
+                    help="")
+parser.add_argument("--save_dir", type=str, default='./results/tmp', help="Folder to save checkpoints and log.")
+parser.add_argument("--rand_seed", type=int, default=1, help="manual seed (we use 1-to-5)")
+parser.add_argument('--wandb_key', default='109a132addff7ecca7b2a99e1126515e5fa66377')
+parser.add_argument('--wandb_project', default='VKDNW')
+parser.add_argument('--wandb_name', default='VKDNW')
+parser.add_argument('--real_input', default=False, action='store_true')
+parser.add_argument('--batch_size', type=int, default=32, help="Batch size.")
+
 
 def random_genotype(max_nodes, op_names):
     genotypes = []
@@ -105,46 +139,14 @@ def zero_shot_compute(xargs, data_loader, zero_shot_score_list=[], real_input_me
     logger.log("------Max Mem------")
     logger.log("All: {:.5f} GB".format(np.max(all_mem) / 1e9))
 
+
 def generate_all_archs(search_space, xargs):
     arch = random_genotype(xargs.max_nodes, search_space)
     archs = arch.gen_all(search_space, xargs.max_nodes, False)
     return archs
 
+
 if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser("Training-free NAS on NAS-Bench-201 (NATS-Bench-TSS)")
-    parser.add_argument("--data_path", type=str, default='./cifar.python', help="The path to dataset")
-    parser.add_argument("--dataset", type=str, default='cifar10', choices=["cifar10", "cifar100", "ImageNet16-120"],
-                        help="Choose between Cifar10/100 and ImageNet-16.")
-
-    # channels and number-of-cells
-    parser.add_argument("--search_space", type=str, default='tss', help="The search space name.")
-    parser.add_argument("--config_path", type=str, default='./configs/nas-benchmark/algos/weight-sharing.config',
-                        help="The path to the configuration.")
-    parser.add_argument("--max_nodes", type=int, default=4, help="The maximum number of nodes.")
-    parser.add_argument("--channel", type=int, default=16, help="The number of channels.")
-    parser.add_argument("--num_cells", type=int, default=5, help="The number of cells in one stage.")
-    parser.add_argument("--affine", type=int, default=1, choices=[0, 1],
-                        help="Whether use affine=True or False in the BN layer.")
-    parser.add_argument("--track_running_stats", type=int, default=0, choices=[0, 1],
-                        help="Whether use track_running_stats or not in the BN layer.")
-
-    # log
-    parser.add_argument("--print_freq", type=int, default=200, help="print frequency (default: 200)")
-
-    # custom
-    parser.add_argument("--gpu", type=int, default=0, help="")
-    parser.add_argument("--workers", type=int, default=4, help="number of data loading workers")
-    # parser.add_argument("--api_data_path", type=str, default="/mnt/personal/tyblondr/NATS-tss-v1_0-3ffb9-full/data/NATS-tss-v1_0-3ffb9-full", help="")
-    parser.add_argument("--api_data_path", type=str, default="/mnt/personal/tyblondr/NATS-tss-v1_0-3ffb9-simple/",
-                        help="")
-    parser.add_argument("--save_dir", type=str, default='./results/tmp', help="Folder to save checkpoints and log.")
-    parser.add_argument("--rand_seed", type=int, default=1, help="manual seed (we use 1-to-5)")
-    parser.add_argument('--wandb_key', default='109a132addff7ecca7b2a99e1126515e5fa66377')
-    parser.add_argument('--wandb_project', default='VKDNW')
-    parser.add_argument('--wandb_name', default='VKDNW')
-    parser.add_argument('--real_input', default=False, action='store_true')
-    parser.add_argument('--batch_size', type=int, default=32, help="Batch size.")
 
     args = parser.parse_args(args=[])
 
