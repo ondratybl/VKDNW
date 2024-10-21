@@ -1,27 +1,18 @@
-import os, sys, time, glob, random, argparse
+import os, sys, random, argparse
 import numpy as np
-from copy import deepcopy
 import torch
-import torch.nn as nn
-import time
 import tqdm
-import scipy.stats as stats
-import matplotlib.pyplot as plt
 import pickle
 import wandb
+from torch.utils.data import Dataset, DataLoader
 
 # XAutoDL
-from xautodl.config_utils import load_config, dict2config, configure2str
+from xautodl.config_utils import load_config
 from xautodl.datasets import get_datasets, get_nas_search_loaders
 from xautodl.procedures import (
     prepare_seed,
     prepare_logger,
-    save_checkpoint,
-    copy_checkpoint,
-    get_optim_scheduler,
 )
-from xautodl.utils import get_model_infos, obtain_accuracy
-from xautodl.log_utils import AverageMeter, time_string, convert_secs2time
 from xautodl.models import get_search_spaces
 
 # API
@@ -33,8 +24,6 @@ from xautodl.models.cell_searchs.genotypes import Structure
 from ZeroShotProxy import *
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-
-
 
 
 def random_genotype(max_nodes, op_names):
@@ -50,11 +39,24 @@ def random_genotype(max_nodes, op_names):
     return arch
 
 
-def zero_shot_compute(xargs, train_loader, zero_shot_score_list=[], real_input_metrics=[], archs=None):
+class RandomDataset(Dataset):
+    def __init__(self, num_samples, resolution, rand_seed=None):
+        self.num_samples = num_samples
+        self.resolution = resolution
+        self.rand_seed = rand_seed
+        if rand_seed is not None:
+            torch.manual_seed(rand_seed)  # Set the seed for reproducibility
 
-    input_, target_ = next(iter(train_loader))
-    resolution = input_.size(2)
-    batch_size = input_.size(0)
+    def __len__(self):
+        return self.num_samples
+
+    def __getitem__(self, idx):
+        # Generate random data with the given resolution
+        random_data = torch.rand(3, self.resolution, self.resolution)
+        return random_data
+
+
+def zero_shot_compute(xargs, data_loader, zero_shot_score_list=[], real_input_metrics=[], archs=None):
 
     all_time = []
     all_mem = []
@@ -77,8 +79,17 @@ def zero_shot_compute(xargs, train_loader, zero_shot_score_list=[], real_input_m
             network.train()
             network.zero_grad()
 
+            if zero_shot_score in real_input_metrics:
+                train_loader = data_loader
+            else:
+                train_loader = DataLoader(
+                    RandomDataset(xargs.batch_size, xargs.resolution, xargs.rand_seed),
+                    batch_size=xargs.batch_size,
+                    shuffle=False,
+                )
+
             info_dict.update(score_fn.compute_nas_score(
-                network, gpu=xargs.gpu, trainloader=train_loader if zero_shot_score in real_input_metrics else None, resolution=resolution, batch_size=batch_size
+                network, gpu=xargs.gpu, trainloader=train_loader, resolution=xargs.resolution, batch_size=xargs.batch_size
             ))
 
             end.record()
@@ -133,7 +144,7 @@ if __name__ == '__main__':
                         choices=['az_nas', 'zico', 'zen', 'gradnorm', 'naswot', 'synflow', 'snip', 'grasp', 'te_nas',
                                  'gradsign'])
     parser.add_argument("--rand_seed", type=int, default=1, help="manual seed (we use 1-to-5)")
-    parser.add_argument('--wandb_key', required=True)
+    parser.add_argument('--wandb_key', default='109a132addff7ecca7b2a99e1126515e5fa66377')
     parser.add_argument('--wandb_project', default='VKDNW')
     parser.add_argument('--wandb_name', default='VKDNW')
     parser.add_argument('--real_input', default=False, action='store_true')
@@ -181,7 +192,6 @@ if __name__ == '__main__':
                                                                                                     xargs.batch_size))
     logger.log("||||||| {:10s} ||||||| Config={:}".format(xargs.dataset, config))
 
-    ## model
     search_space = get_search_spaces(xargs.search_space, "nats-bench")
     logger.log("search space : {:}".format(search_space))
 
@@ -201,6 +211,8 @@ if __name__ == '__main__':
     else:
         # real_input_metrics = ['vkdnw', 'zico', 'snip', 'grasp', 'te_nas', 'gradsign', 'jacov']
         real_input_metrics = []
+
+    xargs.resolution = next(iter(train_loader))[0].size(2)
 
     zero_shot_compute(
         xargs, train_loader, zero_shot_score_list=zero_shot_score_list, real_input_metrics=real_input_metrics, archs=archs,
