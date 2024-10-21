@@ -225,8 +225,9 @@ def get_ntk_n(networks, recalbn=0, train_mode=False, num_batch=None,
     # for i, (inputs, targets) in enumerate(xloader):
     #     if num_batch > 0 and i >= num_batch: break
     for i in range(num_batch):
-        # inputs = torch.randn((batch_size, 3, image_size, image_size), device=device)
-        inputs = next(iter(trainloader))[0]
+        inputs = next(iter(trainloader))
+        if type(inputs) == tuple:
+            inputs = inputs[0]
         inputs = inputs.cuda(device=device, non_blocking=True)
         for net_idx, network in enumerate(networks):
             network.zero_grad()

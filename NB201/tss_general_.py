@@ -72,7 +72,6 @@ def zero_shot_compute(xargs, data_loader, zero_shot_score_list=[], real_input_me
         for zero_shot_score in zero_shot_score_list:
 
             start.record()
-            logger.log("Searching with {}".format(zero_shot_score.lower()))
             score_fn_name = "compute_{}_score".format(zero_shot_score.lower())
             score_fn = globals().get(score_fn_name)
 
@@ -83,7 +82,7 @@ def zero_shot_compute(xargs, data_loader, zero_shot_score_list=[], real_input_me
                 train_loader = data_loader
             else:
                 train_loader = DataLoader(
-                    RandomDataset(xargs.batch_size, xargs.resolution, xargs.rand_seed),
+                    RandomDataset(2*xargs.batch_size, xargs.resolution, xargs.rand_seed), # we need two batches for ZEN
                     batch_size=xargs.batch_size,
                     shuffle=False,
                 )
@@ -99,7 +98,7 @@ def zero_shot_compute(xargs, data_loader, zero_shot_score_list=[], real_input_me
         all_time.append(start.elapsed_time(end))
         all_mem.append(torch.cuda.max_memory_allocated())
 
-    logger.log("------Runtime------")
+    logger .log("------Runtime------")
     logger.log("All: {:.5f} ms".format(np.mean(all_time)))
     logger.log("------Avg Mem------")
     logger.log("All: {:.5f} GB".format(np.mean(all_mem) / 1e9))
@@ -140,9 +139,6 @@ if __name__ == '__main__':
     parser.add_argument("--api_data_path", type=str, default="/mnt/personal/tyblondr/NATS-tss-v1_0-3ffb9-simple/",
                         help="")
     parser.add_argument("--save_dir", type=str, default='./results/tmp', help="Folder to save checkpoints and log.")
-    parser.add_argument('--zero_shot_score', type=str, default='vkdnw',
-                        choices=['az_nas', 'zico', 'zen', 'gradnorm', 'naswot', 'synflow', 'snip', 'grasp', 'te_nas',
-                                 'gradsign'])
     parser.add_argument("--rand_seed", type=int, default=1, help="manual seed (we use 1-to-5)")
     parser.add_argument('--wandb_key', default='109a132addff7ecca7b2a99e1126515e5fa66377')
     parser.add_argument('--wandb_project', default='VKDNW')
@@ -209,8 +205,7 @@ if __name__ == '__main__':
     if xargs.real_input:
         real_input_metrics = zero_shot_score_list
     else:
-        # real_input_metrics = ['vkdnw', 'zico', 'snip', 'grasp', 'te_nas', 'gradsign', 'jacov']
-        real_input_metrics = []
+        real_input_metrics = ['zico', 'snip', 'grasp', 'gradsign', 'jacov']  # these need target
 
     xargs.resolution = next(iter(train_loader))[0].size(2)
 

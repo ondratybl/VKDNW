@@ -245,10 +245,9 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
 
     init_model(model, init_method)
 
-    if trainloader == None:
-        input_ = torch.randn(size=[batch_size, 3, resolution, resolution], device=device, dtype=dtype)
-    else:
-        input_ = next(iter(trainloader))[0].to(device)
+    input_ = next(iter(trainloader)).to(device)
+    if type(input_) == tuple:
+        input_ = input_[0]
 
     fisher_prob = get_fisher(model, input_, use_logits=False)
 
