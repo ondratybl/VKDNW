@@ -148,7 +148,7 @@ def generate_all_archs(search_space, xargs):
 
 if __name__ == '__main__':
 
-    args = parser.parse_args(args=[])
+    args = parser.parse_args()
 
     if args.rand_seed is None or args.rand_seed < 0:
         args.rand_seed = random.randint(1, 100000)
