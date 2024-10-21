@@ -158,7 +158,7 @@ if __name__ == '__main__':
     # initialize wandb
     wandb.login(key=xargs.wandb_key)
     wandb.init(project=xargs.wandb_project,
-               config=xargs, name=xargs.wandb_name, tags=['nb201', xargs.dataset])
+               config=xargs, name=f'{xargs.dataset}_B{xargs.batch_size}_{xargs.wandb_name}', tags=['nb201', xargs.dataset, str(xargs.real_input)])
 
     assert torch.cuda.is_available(), "CUDA is not available."
     torch.backends.cudnn.enabled = True
