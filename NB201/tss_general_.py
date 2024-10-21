@@ -8,6 +8,7 @@ import tqdm
 import scipy.stats as stats
 import matplotlib.pyplot as plt
 import pickle
+import wandb
 
 # XAutoDL
 from xautodl.config_utils import load_config, dict2config, configure2str
@@ -33,30 +34,7 @@ from ZeroShotProxy import *
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-parser = argparse.ArgumentParser("Training-free NAS on NAS-Bench-201 (NATS-Bench-TSS)")
-parser.add_argument("--data_path", type=str, default='./cifar.python', help="The path to dataset")
-parser.add_argument("--dataset", type=str, default='cifar10',choices=["cifar10", "cifar100", "ImageNet16-120"], help="Choose between Cifar10/100 and ImageNet-16.")
 
-# channels and number-of-cells
-parser.add_argument("--search_space", type=str, default='tss', help="The search space name.")
-parser.add_argument("--config_path", type=str, default='./configs/nas-benchmark/algos/weight-sharing.config', help="The path to the configuration.")
-parser.add_argument("--max_nodes", type=int, default=4, help="The maximum number of nodes.")
-parser.add_argument("--channel", type=int, default=16, help="The number of channels.")
-parser.add_argument("--num_cells", type=int, default=5, help="The number of cells in one stage.")
-parser.add_argument("--affine", type=int, default=1, choices=[0, 1], help="Whether use affine=True or False in the BN layer.")
-parser.add_argument("--track_running_stats", type=int, default=0, choices=[0, 1], help="Whether use track_running_stats or not in the BN layer.")
-
-# log
-parser.add_argument("--print_freq", type=int, default=200, help="print frequency (default: 200)")
-
-# custom
-parser.add_argument("--gpu", type=int, default=0, help="")
-parser.add_argument("--workers", type=int, default=4, help="number of data loading workers")
-#parser.add_argument("--api_data_path", type=str, default="/mnt/personal/tyblondr/NATS-tss-v1_0-3ffb9-full/data/NATS-tss-v1_0-3ffb9-full", help="")
-parser.add_argument("--api_data_path", type=str, default="/mnt/personal/tyblondr/NATS-tss-v1_0-3ffb9-simple/", help="")
-parser.add_argument("--save_dir", type=str, default='./results/tmp', help="Folder to save checkpoints and log.")
-parser.add_argument('--zero_shot_score', type=str, default='vkdnw', choices=['az_nas','zico','zen','gradnorm','naswot','synflow','snip','grasp','te_nas','gradsign'])
-parser.add_argument("--rand_seed", type=int, default=1, help="manual seed (we use 1-to-5)")
 
 
 def random_genotype(max_nodes, op_names):
@@ -72,101 +50,50 @@ def random_genotype(max_nodes, op_names):
     return arch
 
 
-def search_find_best(xargs, xloader, train_loader, n_samples=None, archs=None):
-    logger.log("Searching with {}".format(xargs.zero_shot_score.lower()))
-    score_fn_name = "compute_{}_score".format(xargs.zero_shot_score.lower())
-    score_fn = globals().get(score_fn_name)
-    input_, target_ = next(iter(xloader))
+def zero_shot_compute(xargs, train_loader, zero_shot_score_list=[], real_input_metrics=[], archs=None):
+
+    input_, target_ = next(iter(train_loader))
     resolution = input_.size(2)
     batch_size = input_.size(0)
-    zero_shot_score_dict = None
-    arch_list = []
-    if xargs.zero_shot_score.lower() in real_input_metrics:
-        print('Use real images as inputs')
-        trainloader = train_loader
-    else:
-        print('Use random inputs')
-        trainloader = None
 
-    if archs is None and n_samples is not None:
-        all_time = []
-        all_mem = []
-        start = torch.cuda.Event(enable_timing=True)
-        end = torch.cuda.Event(enable_timing=True)
-        for i in tqdm.tqdm(range(n_samples)):
-            torch.cuda.empty_cache()
-            torch.cuda.reset_peak_memory_stats()
-            # random sampling
-            arch = random_genotype(xargs.max_nodes, search_space)
-            network = TinyNetwork(xargs.channel, xargs.num_cells, arch, class_num)
-            network = network.to(device)
-            network.train()
+    all_time = []
+    all_mem = []
+    start = torch.cuda.Event(enable_timing=True)
+    end = torch.cuda.Event(enable_timing=True)
+    for arch in tqdm.tqdm(archs):
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats()
+        network = TinyNetwork(xargs.channel, xargs.num_cells, arch, class_num)
+        network = network.to(device)
+
+        info_dict = {'arch': arch.tostr()}
+        for zero_shot_score in zero_shot_score_list:
 
             start.record()
+            logger.log("Searching with {}".format(zero_shot_score.lower()))
+            score_fn_name = "compute_{}_score".format(zero_shot_score.lower())
+            score_fn = globals().get(score_fn_name)
 
-            info_dict = score_fn.compute_nas_score(network, gpu=xargs.gpu, trainloader=trainloader,
-                                                   resolution=resolution, batch_size=batch_size)
+            network.train()
+            network.zero_grad()
+
+            info_dict.update(score_fn.compute_nas_score(
+                network, gpu=xargs.gpu, trainloader=train_loader if zero_shot_score in real_input_metrics else None, resolution=resolution, batch_size=batch_size
+            ))
 
             end.record()
             torch.cuda.synchronize()
-            all_time.append(start.elapsed_time(end))
-            #             all_mem.append(torch.cuda.max_memory_reserved())
-            all_mem.append(torch.cuda.max_memory_allocated())
+        wandb.log(info_dict)
 
-            arch_list.append(arch)
-            if zero_shot_score_dict is None:  # initialize dict
-                zero_shot_score_dict = dict()
-                for k in info_dict.keys():
-                    zero_shot_score_dict[k] = []
-            for k, v in info_dict.items():
-                zero_shot_score_dict[k].append(v)
+        all_time.append(start.elapsed_time(end))
+        all_mem.append(torch.cuda.max_memory_allocated())
 
-        logger.log("------Runtime------")
-        logger.log("All: {:.5f} ms".format(np.mean(all_time)))
-        logger.log("------Avg Mem------")
-        logger.log("All: {:.5f} GB".format(np.mean(all_mem) / 1e9))
-        logger.log("------Max Mem------")
-        logger.log("All: {:.5f} GB".format(np.max(all_mem) / 1e9))
-
-    elif archs is not None and n_samples is None:
-        all_time = []
-        all_mem = []
-        start = torch.cuda.Event(enable_timing=True)
-        end = torch.cuda.Event(enable_timing=True)
-        for arch in tqdm.tqdm(archs):
-            torch.cuda.empty_cache()
-            torch.cuda.reset_peak_memory_stats()
-            network = TinyNetwork(xargs.channel, xargs.num_cells, arch, class_num)
-            network = network.to(device)
-            network.train()
-
-            start.record()
-
-            info_dict = score_fn.compute_nas_score(network, gpu=xargs.gpu, trainloader=trainloader,
-                                                   resolution=resolution, batch_size=batch_size)
-
-            end.record()
-            torch.cuda.synchronize()
-            all_time.append(start.elapsed_time(end))
-            #             all_mem.append(torch.cuda.max_memory_reserved())
-            all_mem.append(torch.cuda.max_memory_allocated())
-
-            arch_list.append(arch)
-            if zero_shot_score_dict is None:  # initialize dict
-                zero_shot_score_dict = dict()
-                for k in info_dict.keys():
-                    zero_shot_score_dict[k] = []
-            for k, v in info_dict.items():
-                zero_shot_score_dict[k].append(v)
-
-        logger.log("------Runtime------")
-        logger.log("All: {:.5f} ms".format(np.mean(all_time)))
-        logger.log("------Avg Mem------")
-        logger.log("All: {:.5f} GB".format(np.mean(all_mem) / 1e9))
-        logger.log("------Max Mem------")
-        logger.log("All: {:.5f} GB".format(np.max(all_mem) / 1e9))
-
-    return arch_list, zero_shot_score_dict
+    logger.log("------Runtime------")
+    logger.log("All: {:.5f} ms".format(np.mean(all_time)))
+    logger.log("------Avg Mem------")
+    logger.log("All: {:.5f} GB".format(np.mean(all_mem) / 1e9))
+    logger.log("------Max Mem------")
+    logger.log("All: {:.5f} GB".format(np.max(all_mem) / 1e9))
 
 def generate_all_archs(search_space, xargs):
     arch = random_genotype(xargs.max_nodes, search_space)
@@ -174,6 +101,43 @@ def generate_all_archs(search_space, xargs):
     return archs
 
 if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser("Training-free NAS on NAS-Bench-201 (NATS-Bench-TSS)")
+    parser.add_argument("--data_path", type=str, default='./cifar.python', help="The path to dataset")
+    parser.add_argument("--dataset", type=str, default='cifar10', choices=["cifar10", "cifar100", "ImageNet16-120"],
+                        help="Choose between Cifar10/100 and ImageNet-16.")
+
+    # channels and number-of-cells
+    parser.add_argument("--search_space", type=str, default='tss', help="The search space name.")
+    parser.add_argument("--config_path", type=str, default='./configs/nas-benchmark/algos/weight-sharing.config',
+                        help="The path to the configuration.")
+    parser.add_argument("--max_nodes", type=int, default=4, help="The maximum number of nodes.")
+    parser.add_argument("--channel", type=int, default=16, help="The number of channels.")
+    parser.add_argument("--num_cells", type=int, default=5, help="The number of cells in one stage.")
+    parser.add_argument("--affine", type=int, default=1, choices=[0, 1],
+                        help="Whether use affine=True or False in the BN layer.")
+    parser.add_argument("--track_running_stats", type=int, default=0, choices=[0, 1],
+                        help="Whether use track_running_stats or not in the BN layer.")
+
+    # log
+    parser.add_argument("--print_freq", type=int, default=200, help="print frequency (default: 200)")
+
+    # custom
+    parser.add_argument("--gpu", type=int, default=0, help="")
+    parser.add_argument("--workers", type=int, default=4, help="number of data loading workers")
+    # parser.add_argument("--api_data_path", type=str, default="/mnt/personal/tyblondr/NATS-tss-v1_0-3ffb9-full/data/NATS-tss-v1_0-3ffb9-full", help="")
+    parser.add_argument("--api_data_path", type=str, default="/mnt/personal/tyblondr/NATS-tss-v1_0-3ffb9-simple/",
+                        help="")
+    parser.add_argument("--save_dir", type=str, default='./results/tmp', help="Folder to save checkpoints and log.")
+    parser.add_argument('--zero_shot_score', type=str, default='vkdnw',
+                        choices=['az_nas', 'zico', 'zen', 'gradnorm', 'naswot', 'synflow', 'snip', 'grasp', 'te_nas',
+                                 'gradsign'])
+    parser.add_argument("--rand_seed", type=int, default=1, help="manual seed (we use 1-to-5)")
+    parser.add_argument('--wandb_key', required=True)
+    parser.add_argument('--wandb_project', default='VKDNW')
+    parser.add_argument('--wandb_name', default='VKDNW')
+    parser.add_argument('--real_input', default=False, action='store_true')
+    parser.add_argument('--batch_size', type=int, default=32, help="Batch size.")
 
     args = parser.parse_args(args=[])
 
@@ -183,6 +147,11 @@ if __name__ == '__main__':
     print(args.rand_seed)
     print(args)
     xargs = args
+
+    # initialize wandb
+    wandb.login(key=xargs.wandb_key)
+    wandb.init(project=xargs.wandb_project,
+               config=xargs, name=xargs.wandb_name, tags=['nb201', xargs.dataset])
 
     assert torch.cuda.is_available(), "CUDA is not available."
     torch.backends.cudnn.enabled = True
@@ -203,13 +172,13 @@ if __name__ == '__main__':
                                                                        valid_data,
                                                                        xargs.dataset,
                                                                        "./configs/nas-benchmark/",
-                                                                       (config.batch_size, config.test_batch_size),
+                                                                       (xargs.batch_size, xargs.batch_size),
                                                                        xargs.workers, )
     logger.log(
         "||||||| {:10s} ||||||| Search-Loader-Num={:}, Valid-Loader-Num={:}, batch size={:}".format(xargs.dataset,
                                                                                                     len(search_loader),
                                                                                                     len(valid_loader),
-                                                                                                    config.batch_size))
+                                                                                                    xargs.batch_size))
     logger.log("||||||| {:10s} ||||||| Config={:}".format(xargs.dataset, config))
 
     ## model
@@ -218,26 +187,21 @@ if __name__ == '__main__':
 
     device = torch.device('cuda:{}'.format(xargs.gpu))
 
-    real_input_metrics = ['vkdnw', 'zico', 'snip', 'grasp', 'te_nas', 'gradsign', 'jacov']
-
-
     if os.path.exists("./tss_all_arch.pickle"):
         with open("./tss_all_arch.pickle", "rb") as fp:
-            all_archs = pickle.load(fp)
+            archs = pickle.load(fp)
     else:
-        all_archs = generate_all_archs(search_space, xargs)
+        archs = generate_all_archs(search_space, xargs)
         with open("./tss_all_arch.pickle", "wb") as fp:
-            pickle.dump(all_archs, fp)
+            pickle.dump(archs, fp)
 
-    for zero_shot_score in ['jacov', 'az_nas', 'gradsign', 'zico', 'zen','gradnorm','naswot','synflow','snip','grasp','te_nas', 'vkdnw']:
-        xargs.zero_shot_score = zero_shot_score
-        result_path = "./{}_all_arch.pickle".format(xargs.zero_shot_score)
-        if os.path.exists(result_path):
-            print("results already exists")
-            with open(result_path, "rb") as fp:
-                results = pickle.load(fp)
-            archs = all_archs
-        else:
-            archs, results = search_find_best(xargs, train_loader, train_loader, archs=all_archs)
-            with open(result_path, "wb") as fp:
-                pickle.dump(results, fp)
+    zero_shot_score_list = ['vkdnw', 'jacov', 'az_nas', 'gradsign', 'zico', 'zen', 'gradnorm', 'naswot', 'synflow', 'snip', 'grasp', 'te_nas']
+    if xargs.real_input:
+        real_input_metrics = zero_shot_score_list
+    else:
+        # real_input_metrics = ['vkdnw', 'zico', 'snip', 'grasp', 'te_nas', 'gradsign', 'jacov']
+        real_input_metrics = []
+
+    zero_shot_compute(
+        xargs, train_loader, zero_shot_score_list=zero_shot_score_list, real_input_metrics=real_input_metrics, archs=archs,
+    )

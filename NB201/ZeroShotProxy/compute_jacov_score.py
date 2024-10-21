@@ -84,6 +84,6 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, mixup_gam
         print(e)
         jc = np.nan
 
-    info['jacov'] = info
+    info['jacov'] = jc
 
     return info
