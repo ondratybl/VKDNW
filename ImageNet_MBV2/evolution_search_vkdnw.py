@@ -6,7 +6,6 @@ ZiCo: 'https://github.com/SLDGroup/ZiCo/blob/3eeb517d51cd447685099c8a4351edee8e3
 
 import os, sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../NB201/ZeroShotProxy')))
 
 import argparse, random, logging, time
 import torch
@@ -19,6 +18,7 @@ import PlainNet
 from xautodl import datasets
 import time
 
+sys.path.append("../NB201/ZeroShotProxy")
 import compute_vkdnw_score
 import benchmark_network_latency
 
@@ -44,29 +44,29 @@ def none_or_int(value):
 
 def parse_cmd_options(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--gpu', type=int, default=None)
+    parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument('--zero_shot_score', type=str, default='vkdnw')
-    parser.add_argument('--search_space', type=str, default=None,
+    parser.add_argument('--search_space', type=str, default='SearchSpace/search_space_IDW_fixfc.py',
                         help='.py file to specify the search space.')
     parser.add_argument('--evolution_max_iter', type=int, default=int(100000),
                         help='max iterations of evolution.')
     parser.add_argument('--budget_model_size', type=float, default=None, help='budget of model size ( number of parameters), e.g., 1e6 means 1M params')
-    parser.add_argument('--budget_flops', type=float, default=None, help='budget of flops, e.g. , 1.8e6 means 1.8 GFLOPS')
+    parser.add_argument('--budget_flops', type=float, default=450e6, help='budget of flops, e.g. , 1.8e6 means 1.8 GFLOPS')
     parser.add_argument('--budget_latency', type=float, default=None, help='latency of forward inference per mini-batch, e.g., 1e-3 means 1ms.')
-    parser.add_argument('--max_layers', type=int, default=None, help='max number of layers of the network.')
-    parser.add_argument('--batch_size', type=int, default=None, help='number of instances in one mini-batch.')
-    parser.add_argument('--input_image_size', type=int, default=None,
+    parser.add_argument('--max_layers', type=int, default=14, help='max number of layers of the network.')
+    parser.add_argument('--batch_size', type=int, default=32, help='number of instances in one mini-batch.')
+    parser.add_argument('--input_image_size', type=int, default=224,
                         help='resolution of input image, usually 32 for CIFAR and 224 for ImageNet.')
-    parser.add_argument('--population_size', type=int, default=512, help='population size of evolution.')
-    parser.add_argument('--save_dir', type=str, default=None,
+    parser.add_argument('--population_size', type=int, default=1024, help='population size of evolution.')
+    parser.add_argument('--save_dir', type=str, default='./',
                         help='output directory')
     parser.add_argument('--gamma', type=float, default=1e-2,
                         help='noise perturbation coefficient')
-    parser.add_argument('--num_classes', type=int, default=None,
+    parser.add_argument('--num_classes', type=int, default=120,
                         help='number of classes')
-    parser.add_argument('--dataset', type=str,
+    parser.add_argument('--dataset', type=str, default='ImageNet16-120',
                         help='type of dataset')
-    parser.add_argument('--datapath', type=str,
+    parser.add_argument('--datapath', type=str, default='../NB201/ImageNet16-120',
                         help='root of path')
     parser.add_argument('--num_worker', type=int, default=40,
                         help='root of path')
@@ -74,7 +74,7 @@ def parse_cmd_options(argv):
                         help='root of path')
     parser.add_argument('--rand_input', type=str2bool, default=True, help='random input')
     parser.add_argument('--search_no_res', type=str2bool, default=False, help='remove residual link in search phase')
-    parser.add_argument('--seed', type=none_or_int, default=None)    
+    parser.add_argument('--seed', type=none_or_int, default=123)
                         
     module_opt, _ = parser.parse_known_args(argv)
     return module_opt
@@ -213,6 +213,7 @@ def main(args, argv):
 
     # load masternet
     AnyPlainNet = Masternet.MasterNet
+    args.plainnet_struct_txt = 'plainnet.txt'
 
     masternet = AnyPlainNet(num_classes=args.num_classes, opt=args, argv=argv, no_create=True)
     initial_structure_str = str(masternet)
