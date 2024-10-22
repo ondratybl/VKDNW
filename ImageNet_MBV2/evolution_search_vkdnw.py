@@ -57,7 +57,7 @@ def parse_cmd_options(argv):
     parser.add_argument('--budget_latency', type=float, default=None, help='latency of forward inference per mini-batch, e.g., 1e-3 means 1ms.')
     parser.add_argument('--max_layers', type=int, default=14, help='max number of layers of the network.')
     parser.add_argument('--batch_size', type=int, default=32, help='number of instances in one mini-batch.')
-    parser.add_argument('--input_image_size', type=int, default=224,
+    parser.add_argument('--input_image_size', type=int, default=32,
                         help='resolution of input image, usually 32 for CIFAR and 224 for ImageNet.')
     parser.add_argument('--population_size', type=int, default=2048, help='population size of evolution.')
     parser.add_argument('--save_dir', type=str, default='./',
@@ -324,7 +324,7 @@ def main(args, argv):
 
         temp = pd.DataFrame(popu_zero_shot_score_dict)
         temp['vkdnw_ratio'] = -(temp['vkdnw_lambda_8']/temp['vkdnw_lambda_3']).apply(np.log)
-        popu_zero_shot_score_dict['vkdnw_progressivity'] = list(temp.groupby('vkdnw_dim')['vkdnw_ratio'].rank().values)
+        popu_zero_shot_score_dict['vkdnw_progressivity'] = list(temp[['vkdnw_dim', 'vkdnw_ratio']].apply(tuple, axis=1).rank(method='dense', ascending=True).values)
 
         popu_zero_shot_score_list = None
         for key in ['complexity', 'expressivity', 'trainability', 'vkdnw_progressivity']:
