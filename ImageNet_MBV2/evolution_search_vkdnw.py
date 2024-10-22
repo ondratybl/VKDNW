@@ -6,6 +6,7 @@ ZiCo: 'https://github.com/SLDGroup/ZiCo/blob/3eeb517d51cd447685099c8a4351edee8e3
 
 import os, sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append("../../apex/")
 
 import argparse, random, logging, time
 import torch
@@ -17,13 +18,14 @@ import PlainNet
 # from tqdm import tqdm
 from xautodl import datasets
 import time
+import wandb
 
-sys.path.append("../NB201/ZeroShotProxy")
-import compute_vkdnw_score
+from ZeroShotProxy import compute_vkdnw_score
 import benchmark_network_latency
 
 import scipy.stats as stats
 import pickle
+import pandas as pd
 
 working_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -57,12 +59,12 @@ def parse_cmd_options(argv):
     parser.add_argument('--batch_size', type=int, default=32, help='number of instances in one mini-batch.')
     parser.add_argument('--input_image_size', type=int, default=224,
                         help='resolution of input image, usually 32 for CIFAR and 224 for ImageNet.')
-    parser.add_argument('--population_size', type=int, default=1024, help='population size of evolution.')
+    parser.add_argument('--population_size', type=int, default=2048, help='population size of evolution.')
     parser.add_argument('--save_dir', type=str, default='./',
                         help='output directory')
     parser.add_argument('--gamma', type=float, default=1e-2,
                         help='noise perturbation coefficient')
-    parser.add_argument('--num_classes', type=int, default=120,
+    parser.add_argument('--num_classes', type=int, default=10,
                         help='number of classes')
     parser.add_argument('--dataset', type=str, default='ImageNet16-120',
                         help='type of dataset')
@@ -75,6 +77,9 @@ def parse_cmd_options(argv):
     parser.add_argument('--rand_input', type=str2bool, default=True, help='random input')
     parser.add_argument('--search_no_res', type=str2bool, default=False, help='remove residual link in search phase')
     parser.add_argument('--seed', type=none_or_int, default=123)
+    parser.add_argument('--wandb_key', default='109a132addff7ecca7b2a99e1126515e5fa66377')
+    parser.add_argument('--wandb_project', default='VKDNW')
+    parser.add_argument('--wandb_name', default='VKDNW_EVOLUTION')
                         
     module_opt, _ = parser.parse_known_args(argv)
     return module_opt
@@ -213,7 +218,7 @@ def main(args, argv):
 
     # load masternet
     AnyPlainNet = Masternet.MasterNet
-    args.plainnet_struct_txt = 'plainnet.txt'
+    args.plainnet_struct_txt = 'plainnet_zico.txt'
 
     masternet = AnyPlainNet(num_classes=args.num_classes, opt=args, argv=argv, no_create=True)
     initial_structure_str = str(masternet)
@@ -229,6 +234,7 @@ def main(args, argv):
     start_timer = time.time()
     lossfunc = nn.CrossEntropyLoss().cuda()
     loop_count = 0
+    torch.cuda.reset_peak_memory_stats()
     while loop_count < args.evolution_max_iter:
         # ----- generate a random structure ----- #
         if len(popu_structure_list) <= 10:
@@ -259,7 +265,7 @@ def main(args, argv):
                 the_model = AnyPlainNet(num_classes=args.num_classes, plainnet_struct=random_structure_str,
                                         no_create=True, no_reslink=False)
             the_layers = the_model.get_num_layers()
-            if args.max_layers < the_layers:
+            if the_layers not in [args.max_layers - 1, args.max_layers, args.max_layers + 1]:
                 continue
 
         if args.budget_model_size is not None:
@@ -302,6 +308,13 @@ def main(args, argv):
         the_nas_core = compute_nas_score(AnyPlainNet, random_structure_str, gpu, args, trainbatches, lossfunc)
         search_time_list.append(time.time() - search_time_start)
 
+        wandb_log = the_nas_core.copy()
+        wandb_log['arch'] = random_structure_str
+        wandb_log['flops'] = the_model_flops
+        wandb_log['model_size'] = the_model.get_model_size()
+        wandb_log['num_layers'] = the_model.get_num_layers()
+        wandb.log(wandb_log)
+
         if popu_zero_shot_score_dict is None: # initialize dict
             popu_zero_shot_score_dict = dict()
             for k in the_nas_core.keys():
@@ -309,14 +322,20 @@ def main(args, argv):
         for k, v in the_nas_core.items():
             popu_zero_shot_score_dict[k].append(v)
 
+        temp = pd.DataFrame(popu_zero_shot_score_dict)
+        temp['vkdnw_ratio'] = -(temp['vkdnw_lambda_8']/temp['vkdnw_lambda_3']).apply(np.log)
+        popu_zero_shot_score_dict['vkdnw_progressivity'] = list(temp.groupby('vkdnw_dim')['vkdnw_ratio'].rank().values)
+
         popu_zero_shot_score_list = None
-        for key in popu_zero_shot_score_dict.keys():
+        for key in ['complexity', 'expressivity', 'trainability', 'vkdnw_progressivity']:
             l = len(popu_zero_shot_score_dict[key])
             _rank = stats.rankdata(popu_zero_shot_score_dict[key])
             if popu_zero_shot_score_list is not None:
                 popu_zero_shot_score_list = popu_zero_shot_score_list + np.log(_rank/l)
             else:
                 popu_zero_shot_score_list = np.log(_rank/l)
+
+        popu_zero_shot_score_dict.pop('vkdnw_progressivity')
         popu_zero_shot_score_list = popu_zero_shot_score_list.tolist()
         popu_structure_list.append(random_structure_str)
         popu_latency_list.append(the_latency)
@@ -351,6 +370,9 @@ if __name__ == '__main__':
         torch.backends.cudnn.deterministic=True
         torch.backends.cudnn.benchmark = False
         os.environ["PYTHONHASHSEED"] = str(args.seed)
+
+    wandb.login(key=args.wandb_key)
+    wandb.init(project=args.wandb_project, config=args, name=args.wandb_name, tags=['evolution'])
 
     info = main(args, sys.argv)
     if info is None:

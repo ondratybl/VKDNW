@@ -55,7 +55,7 @@ python evolution_search_az.py --gpu ${gpu} \
   --rand_input True \
   --search_no_res False \
   --seed ${seed} \
-  --datapath /dataset/ILSVRC2012/
+  --datapath /mnt/data/Public_datasets/imagenet/imagenet_pytorch
 
 python analyze_model.py \
   --input_image_size 224 \

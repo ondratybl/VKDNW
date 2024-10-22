@@ -208,7 +208,7 @@ def get_jacobian_index(model, input, param_idx):
 
     params_grad = {k: v.flatten()[param_idx:param_idx+1].detach() for k, v in model.named_parameters()}
     buffers = {k: v.detach() for k, v in model.named_buffers()}
-    params_grad = dict(list(params_grad.items())[0:50])
+    #params_grad = dict(list(params_grad.items())[0:50])
 
     def jacobian_sample(sample):
         def compute_prediction(params_grad_tmp):
@@ -257,6 +257,78 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
         input_ = input_.clone().cuda(device=device, non_blocking=True)
     else:
         input_ = input_.clone()
+
+
+    if model.no_reslink:
+        layer_features = model.extract_layer_features_nores(input_)
+    else:
+        layer_features, output = model.extract_layer_features_and_logit(input_)
+
+    ################ expressivity & progressivity scores ################
+    expressivity_scores = []
+    for i in range(len(layer_features)):
+        feat = layer_features[i].detach().clone()
+        b, c, h, w = feat.size()
+        feat = feat.permute(0, 2, 3, 1).contiguous().view(b * h * w, c)
+        m = feat.mean(dim=0, keepdim=True)
+        feat = feat - m
+        sigma = torch.mm(feat.transpose(1, 0), feat) / (feat.size(0))
+        s = torch.linalg.eigvalsh(
+            sigma)  # faster version for computing eignevalues, can be adopted since sigma is symmetric
+        prob_s = s / s.sum()
+        score = (-prob_s) * torch.log(prob_s + 1e-8)
+        score = score.sum().item()
+        expressivity_scores.append(score)
+    expressivity_scores = np.array(expressivity_scores)
+    progressivity = np.min(expressivity_scores[1:] - expressivity_scores[:-1])
+    expressivity = np.sum(expressivity_scores)
+    #####################################################################
+
+    ################ trainability score ##############
+    scores = []
+    for i in reversed(range(1, len(layer_features))):
+        f_out = layer_features[i]
+        f_in = layer_features[i - 1]
+        if f_out.grad is not None:
+            f_out.grad.zero_()
+        if f_in.grad is not None:
+            f_in.grad.zero_()
+
+        g_out = torch.ones_like(f_out) * 0.5
+        g_out = (torch.bernoulli(g_out) - 0.5) * 2
+        g_in = torch.autograd.grad(outputs=f_out, inputs=f_in, grad_outputs=g_out, retain_graph=False)[0]
+        if g_out.size() == g_in.size() and torch.all(g_in == g_out):
+            scores.append(-np.inf)
+        else:
+            if g_out.size(2) != g_in.size(2) or g_out.size(3) != g_in.size(3):
+                bo, co, ho, wo = g_out.size()
+                bi, ci, hi, wi = g_in.size()
+                stride = int(hi / ho)
+                pixel_unshuffle = nn.PixelUnshuffle(stride)
+                g_in = pixel_unshuffle(g_in)
+            bo, co, ho, wo = g_out.size()
+            bi, ci, hi, wi = g_in.size()
+            ### straight-forward way
+            # g_out = g_out.permute(0,2,3,1).contiguous().view(bo*ho*wo,1,co)
+            # g_in = g_in.permute(0,2,3,1).contiguous().view(bi*hi*wi,ci,1)
+            # mat = torch.bmm(g_in,g_out).mean(dim=0)
+            ### efficient way # print(torch.allclose(mat, mat2, atol=1e-6))
+            g_out = g_out.permute(0, 2, 3, 1).contiguous().view(bo * ho * wo, co)
+            g_in = g_in.permute(0, 2, 3, 1).contiguous().view(bi * hi * wi, ci)
+            mat = torch.mm(g_in.transpose(1, 0), g_out) / (bo * ho * wo)
+            ### make faster on cpu
+            if mat.size(0) < mat.size(1):
+                mat = mat.transpose(0, 1)
+            ###
+            s = torch.linalg.svdvals(mat)
+            scores.append(-s.max().item() - 1 / (s.max().item() + 1e-6) + 2)
+    trainability = np.mean(scores)
+    #################################################
+
+    info['expressivity'] = float(expressivity) if not np.isnan(expressivity) else -np.inf
+    info['progressivity'] = float(progressivity) if not np.isnan(progressivity) else -np.inf
+    info['trainability'] = float(trainability) if not np.isnan(trainability) else -np.inf
+    info['complexity'] = float(model.get_FLOPs(resolution))
 
     fisher_prob = get_fisher(model, input_, use_logits=False)
 
