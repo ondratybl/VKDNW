@@ -58,6 +58,7 @@ parser.add_argument('--wandb_project', default='VKDNW')
 parser.add_argument('--wandb_name', default='VKDNW')
 parser.add_argument('--real_input', default=False, action='store_true')
 parser.add_argument('--batch_size', type=int, default=32, help="Batch size.")
+parser.add_argument('--params_grad_len', type=int, default=256, help='number of params for fisher matrix')
 
 
 def random_genotype(max_nodes, op_names):
@@ -122,7 +123,7 @@ def zero_shot_compute(xargs, data_loader, zero_shot_score_list=[], real_input_me
                 )
 
             info_dict.update(score_fn.compute_nas_score(
-                network, gpu=xargs.gpu, trainloader=train_loader, resolution=xargs.resolution, batch_size=xargs.batch_size
+                network, gpu=xargs.gpu, trainloader=train_loader, resolution=xargs.resolution, batch_size=xargs.batch_size, params_grad_len=xargs.params_grad_len
             ))
 
             end.record()
