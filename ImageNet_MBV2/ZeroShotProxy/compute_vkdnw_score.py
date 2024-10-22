@@ -128,7 +128,6 @@ def get_fisher(model, input, use_logits=True):
 
     jacobian = get_jacobian_index(model, input, 0)
     if not use_logits:
-        #jacobian = torch.matmul(cholesky_covariance(model(input)[1]), jacobian).detach() TODO
         jacobian = torch.matmul(cholesky_covariance(model(input)), jacobian).detach()
 
     fisher = torch.mean(torch.matmul(torch.transpose(jacobian, dim0=1, dim1=2), jacobian), dim=0).detach()
@@ -219,7 +218,6 @@ def get_jacobian_index(model, input, param_idx):
                 param[param_idx:param_idx+1] = v
                 params[k] = param.reshape(param_shape)
 
-            #return functional_call(model, (params, buffers), (sample.unsqueeze(0),))[1].squeeze(0) TODO
             return functional_call(model, (params, buffers), (sample.unsqueeze(0),)).squeeze(0)
 
         return jacrev(compute_prediction)(params_grad)
