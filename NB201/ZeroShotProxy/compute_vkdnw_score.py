@@ -207,7 +207,11 @@ def get_jacobian_index(model, input, param_idx, params_grad_len):
 
     params_grad = {k: v.flatten()[param_idx:param_idx+1].detach() for k, v in model.named_parameters()}
     buffers = {k: v.detach() for k, v in model.named_buffers()}
-    params_grad = dict(list(params_grad.items())[0:params_grad_len])
+
+    if params_grad_len > 0:
+        params_grad = dict(list(params_grad.items())[0:params_grad_len])
+    else:
+        params_grad = dict(list(params_grad.items())[0:(len(params_grad) // -params_grad_len)])
 
     def jacobian_sample(sample):
         def compute_prediction(params_grad_tmp):
