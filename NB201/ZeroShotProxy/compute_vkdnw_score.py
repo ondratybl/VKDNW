@@ -233,7 +233,7 @@ def get_jacobian_index(model, input, param_idx, params_grad_len):
     return ret.detach()
 
 
-def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_method='kaiming_norm_fanin', fp16=False, params_grad_len=256):
+def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_method='kaiming_norm_fanin', fp16=False, params_grad_len=128):
     model.train()
     model.cuda()
     info = {}

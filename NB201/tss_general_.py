@@ -123,7 +123,7 @@ def zero_shot_compute(xargs, data_loader, zero_shot_score_list=[], real_input_me
                 )
 
             info_dict.update(score_fn.compute_nas_score(
-                network, gpu=xargs.gpu, trainloader=train_loader, resolution=xargs.resolution, batch_size=xargs.batch_size, params_grad_len=xargs.params_grad_len
+                network, gpu=xargs.gpu, trainloader=train_loader, resolution=xargs.resolution, batch_size=xargs.batch_size
             ))
 
             end.record()
