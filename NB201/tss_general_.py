@@ -158,6 +158,9 @@ if __name__ == '__main__':
     print(args)
     xargs = args
 
+    if xargs.dataset == 'ImageNet16-120':
+        xargs.data_path += '/ImageNet16'
+
     # initialize wandb
     wandb.login(key=xargs.wandb_key)
     wandb.init(project=xargs.wandb_project,
