@@ -161,4 +161,3 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size):
 
     return info
 
-

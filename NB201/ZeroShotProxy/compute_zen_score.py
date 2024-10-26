@@ -53,15 +53,8 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, mixup_gam
     with torch.no_grad():
         for repeat_count in range(repeat):
             network_weight_gaussian_init(model)
-
-            trainiterator = iter(trainloader)
-            input = next(trainiterator)
-            input2 = next(trainiterator)
-            if type(input) == list:
-                input = input[0]
-                input2 = input2[0]
-            input = input.to(device)
-            input2 = input2.to(device)
+            input = torch.randn(size=[batch_size, 3, resolution, resolution], device=device, dtype=dtype)
+            input2 = torch.randn(size=[batch_size, 3, resolution, resolution], device=device, dtype=dtype)
             mixup_input = input + mixup_gamma * input2
             output = model.forward_pre_GAP(input)
             mixup_output = model.forward_pre_GAP(mixup_input)

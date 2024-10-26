@@ -57,8 +57,7 @@ parser.add_argument('--wandb_key', default='109a132addff7ecca7b2a99e1126515e5fa6
 parser.add_argument('--wandb_project', default='VKDNW')
 parser.add_argument('--wandb_name', default='VKDNW')
 parser.add_argument('--real_input', default=False, action='store_true')
-parser.add_argument('--batch_size', type=int, default=32, help="Batch size.")
-parser.add_argument('--params_grad_len', type=int, default=256, help='number of params for fisher matrix')
+parser.add_argument('--batch_size', type=int, default=64, help="Batch size.")
 
 
 def random_genotype(max_nodes, op_names):
@@ -92,7 +91,6 @@ class RandomDataset(Dataset):
 
 
 def zero_shot_compute(xargs, data_loader, zero_shot_score_list=[], real_input_metrics=[], archs=None):
-
     all_time = []
     all_mem = []
     start = torch.cuda.Event(enable_timing=True)
@@ -124,7 +122,8 @@ def zero_shot_compute(xargs, data_loader, zero_shot_score_list=[], real_input_me
                 train_loader = None
 
             info_dict.update(score_fn.compute_nas_score(
-                network, gpu=xargs.gpu, trainloader=train_loader, resolution=xargs.resolution, batch_size=xargs.batch_size
+                network, gpu=xargs.gpu, trainloader=train_loader, resolution=xargs.resolution,
+                batch_size=xargs.batch_size
             ))
 
             end.record()
@@ -134,7 +133,7 @@ def zero_shot_compute(xargs, data_loader, zero_shot_score_list=[], real_input_me
         all_time.append(start.elapsed_time(end))
         all_mem.append(torch.cuda.max_memory_allocated())
 
-    logger .log("------Runtime------")
+    logger.log("------Runtime------")
     logger.log("All: {:.5f} ms".format(np.mean(all_time)))
     logger.log("------Avg Mem------")
     logger.log("All: {:.5f} GB".format(np.mean(all_mem) / 1e9))
@@ -165,7 +164,8 @@ if __name__ == '__main__':
     # initialize wandb
     wandb.login(key=xargs.wandb_key)
     wandb.init(project=xargs.wandb_project,
-               config=xargs, name=f'{xargs.dataset}_B{xargs.batch_size}_{xargs.wandb_name}', tags=['nb201', xargs.dataset, str(xargs.real_input)])
+               config=xargs, name=f'{xargs.dataset}_B{xargs.batch_size}_{xargs.wandb_name}',
+               tags=['nb201', xargs.dataset, str(xargs.real_input)])
 
     assert torch.cuda.is_available(), "CUDA is not available."
     torch.backends.cudnn.enabled = True
@@ -208,7 +208,8 @@ if __name__ == '__main__':
         with open("./tss_all_arch.pickle", "wb") as fp:
             pickle.dump(archs, fp)
 
-    zero_shot_score_list = ['vkdnw', 'az_nas']#'jacov', 'az_nas', 'gradsign', 'zico', 'zen', 'gradnorm', 'naswot', 'synflow', 'snip', 'grasp', 'te_nas']
+    zero_shot_score_list = ['vkdnw', 'az_nas', 'jacov', 'az_nas', 'gradsign', 'zico', 'zen', 'gradnorm', 'naswot',
+                            'synflow', 'snip', 'grasp', 'te_nas']
     if xargs.real_input:
         real_input_metrics = zero_shot_score_list
     else:
@@ -218,5 +219,6 @@ if __name__ == '__main__':
     xargs.resolution = next(iter(train_loader))[0].size(2)
 
     zero_shot_compute(
-        xargs, train_loader, zero_shot_score_list=zero_shot_score_list, real_input_metrics=real_input_metrics, archs=archs,
+        xargs, train_loader, zero_shot_score_list=zero_shot_score_list, real_input_metrics=real_input_metrics,
+        archs=archs,
     )
