@@ -189,107 +189,69 @@ def plot_stats(grouped, group, target, pred, fig_name):
 
 
 def analyze_results(api, df_results, zero_shot_score, target):
+    archs = list(df_results['net_str'])
+    api_valid_accs = list(df_results[target])
+    api_flops = list(df_results['flops'])
 
-        archs = list(df_results['net_str'])
-        api_valid_accs = list(df_results[target])
-        api_flops = list(df_results['flops'])
+    if zero_shot_score == 'vkdnw':
+        import pandas as pd
+        results = pd.DataFrame(df_results)
+        results['vkdnw_ratio'] = -(results['vkdnw_lambda_8'] / results['vkdnw_lambda_3']).apply(np.log)
+        results['vkdnw'] = results[['vkdnw_dim', 'vkdnw_ratio']].apply(tuple, axis=1).rank(method='dense',
+                                                                                           ascending=True).astype(
+            int)
+        results = {'vkdnw': results['vkdnw'], 'expressivity': list(df_results['expressivity']),
+                   'trainability': list(df_results['trainability'])}
+    elif zero_shot_score == 'te_nas':
+        results = {'ntk': list(df_results['ntk']), 'linear_region': list(df_results['linear_region'])}
+    elif zero_shot_score == 'az_nas':
+        results = {'expressivity': list(df_results['expressivity']), 'progressivity': list(df_results['progressivity']),
+                   'trainability': list(df_results['trainability'])}
+    else:
+        results = {zero_shot_score: list(df_results[zero_shot_score])}
 
-        if zero_shot_score == 'vkdnw':
-            import pandas as pd
-            results = pd.DataFrame(df_results)
-            results['vkdnw_ratio'] = -(results['vkdnw_lambda_8'] / results['vkdnw_lambda_3']).apply(np.log)
-            results['vkdnw'] = results[['vkdnw_dim', 'vkdnw_ratio']].apply(tuple, axis=1).rank(method='dense',
-                                                                                               ascending=True).astype(
-                int)
-            results = {'vkdnw': results['vkdnw']}
-        elif zero_shot_score == 'te_nas':
-            results = {'ntk': list(df_results['ntk']), 'linear_region': list(df_results['linear_region'])}
-        elif zero_shot_score == 'az_nas':
-            results = {'expressivity': list(df_results['expressivity']), 'progressivity': list(df_results['progressivity']), 'trainability': list(df_results['trainability'])}
-        else:
-            results = {zero_shot_score: list(df_results[zero_shot_score])}
+    fig_scale = 1.1
 
-        fig_scale = 1.1
+    if zero_shot_score.lower() == 'az_nas' or zero_shot_score.lower() == 'vkdnw':
+        rank_agg = None
+        l = len(api_flops)
+        rank_agg = np.log(stats.rankdata(api_flops) / l)
+        for k in results.keys():
+            print(k)
+            if rank_agg is None:
+                rank_agg = np.log(stats.rankdata(results[k]) / l)
+            else:
+                rank_agg = rank_agg + np.log(stats.rankdata(results[k]) / l)
 
-        if zero_shot_score.lower() == 'az_nas':
-            rank_agg = None
-            l = len(api_flops)
-            rank_agg = np.log(stats.rankdata(api_flops) / l)
-            for k in results.keys():
-                print(k)
-                if rank_agg is None:
-                    rank_agg = np.log(stats.rankdata(results[k]) / l)
-                else:
-                    rank_agg = rank_agg + np.log(stats.rankdata(results[k]) / l)
+    elif zero_shot_score == 'te_nas':
+        rank_agg = None
+        for k in results.keys():
+            print(k)
+            if rank_agg is None:
+                rank_agg = stats.rankdata(results[k])
+            else:
+                rank_agg = rank_agg + stats.rankdata(results[k])
+    else:
+        for k, v in results.items():
+            print(k)
+            rank_agg = v
+    best_idx = np.argmax(rank_agg)
 
-            best_idx = np.argmax(rank_agg)
+    best_arch, acc = archs[best_idx], api_valid_accs[best_idx]
+    if api is not None:
+        print("{:}".format(api.query_by_arch(best_arch, "200")))
 
-            best_arch, acc = archs[best_idx], api_valid_accs[best_idx]
-            if api is not None:
-                print("{:}".format(api.query_by_arch(best_arch, "200")))
-
-            x = stats.rankdata(rank_agg)
-            y = stats.rankdata(api_valid_accs)
-            kendalltau = stats.kendalltau(x, y)
-            spearmanr = stats.spearmanr(x, y)
-            pearsonr = stats.pearsonr(x, y)
-            print("AZ-NAS: {}\t{}\t{}\t".format(kendalltau[0], pearsonr[0], spearmanr[0]))
-            plt.figure(figsize=(4 * fig_scale, 3 * fig_scale))
-            plt.scatter(x, y, linewidths=0.1)
-            best_idx = np.argmax(rank_agg)
-            plt.scatter(x[best_idx], y[best_idx], c="r", linewidths=0.1)
-            plt.title("AZ-NAS")
-            plt.show()
-
-        elif zero_shot_score == 'te_nas':
-            rank_agg = None
-            for k in results.keys():
-                print(k)
-                if rank_agg is None:
-                    rank_agg = stats.rankdata(results[k])
-                else:
-                    rank_agg = rank_agg + stats.rankdata(results[k])
-
-            best_idx = np.argmax(rank_agg)
-
-            best_arch, acc = archs[best_idx], api_valid_accs[best_idx]
-            if api is not None:
-                print("{:}".format(api.query_by_arch(best_arch, "200")))
-
-            x = stats.rankdata(rank_agg)
-            y = stats.rankdata(api_valid_accs)
-            kendalltau = stats.kendalltau(x, y)
-            spearmanr = stats.spearmanr(x, y)
-            pearsonr = stats.pearsonr(x, y)
-            print("TE-NAS: {}\t{}\t{}\t".format(kendalltau[0], pearsonr[0], spearmanr[0]))
-            plt.figure(figsize=(4 * fig_scale, 3 * fig_scale))
-            plt.scatter(x, y, linewidths=0.1)
-            best_idx = np.argmax(rank_agg)
-            plt.scatter(x[best_idx], y[best_idx], c="r", linewidths=0.1)
-            plt.title("TE-NAS")
-            plt.show()
-
-        else:
-            for k, v in results.items():
-                print(k)
-                best_idx = np.argmax(v)
-
-                best_arch, acc = archs[best_idx], api_valid_accs[best_idx]
-                if api is not None:
-                    print("{:}".format(api.query_by_arch(best_arch, "200")))
-
-                x = stats.rankdata(v)
-                y = stats.rankdata(api_valid_accs)
-                kendalltau = stats.kendalltau(x, y)
-                spearmanr = stats.spearmanr(x, y)
-                pearsonr = stats.pearsonr(x, y)
-                print("{}: {}\t{}\t{}\t".format(k, kendalltau[0], pearsonr[0], spearmanr[0]))
-                plt.figure(figsize=(4 * fig_scale, 3 * fig_scale))
-                plt.scatter(x, y, linewidths=0.1)
-                best_idx = np.argmax(v)
-                plt.scatter(x[best_idx], y[best_idx], c="r", linewidths=0.1)
-                plt.title("{}".format(k))
-                plt.show()
+    x = stats.rankdata(rank_agg)
+    y = stats.rankdata(api_valid_accs)
+    kendalltau = stats.kendalltau(x, y)
+    spearmanr = stats.spearmanr(x, y)
+    pearsonr = stats.pearsonr(x, y)
+    print("{}: {}\t{}\t{}\t".format(k, kendalltau[0], pearsonr[0], spearmanr[0]))
+    plt.figure(figsize=(4 * fig_scale, 3 * fig_scale))
+    plt.scatter(x, y, linewidths=0.1)
+    plt.scatter(x[best_idx], y[best_idx], c="r", linewidths=0.1)
+    plt.title(f"{zero_shot_score} with acc {acc:.2f}")
+    plt.show()
 
 
 def compute_vkdnw(df_results, ind_high=8, ind_low=3):
