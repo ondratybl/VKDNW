@@ -58,6 +58,7 @@ parser.add_argument('--wandb_project', default='VKDNW')
 parser.add_argument('--wandb_name', default='VKDNW')
 parser.add_argument('--real_input', default=False, action='store_true')
 parser.add_argument('--batch_size', type=int, default=64, help="Batch size.")
+parser.add_argument('--params_grad_len', type=int, default=128, help="Number of layers to consider.")
 
 
 def random_genotype(max_nodes, op_names):
@@ -120,11 +121,15 @@ def zero_shot_compute(xargs, data_loader, zero_shot_score_list=[], real_input_me
                 #    shuffle=False,
                 #)
                 train_loader = None
-
-            info_dict.update(score_fn.compute_nas_score(
-                network, gpu=xargs.gpu, trainloader=train_loader, resolution=xargs.resolution,
-                batch_size=xargs.batch_size
-            ))
+            if zero_shot_score == 'vkdnw':
+                info_dict.update(score_fn.compute_nas_score(
+                    network, gpu=xargs.gpu, trainloader=train_loader, resolution=xargs.resolution,
+                    batch_size=xargs.batch_size, params_grad_len=xargs.params_grad_len,
+                ))
+            else:
+                info_dict.update(score_fn.compute_nas_score(
+                    network, gpu=xargs.gpu, trainloader=train_loader, resolution=xargs.resolution, batch_size=xargs.batch_size,
+                ))
 
             end.record()
             torch.cuda.synchronize()
@@ -208,8 +213,7 @@ if __name__ == '__main__':
         with open("./tss_all_arch.pickle", "wb") as fp:
             pickle.dump(archs, fp)
 
-    zero_shot_score_list = ['vkdnw', 'az_nas', 'jacov', 'az_nas', 'gradsign', 'zico', 'zen', 'gradnorm', 'naswot',
-                            'synflow', 'snip', 'grasp', 'te_nas']
+    zero_shot_score_list = ['vkdnw']#, 'az_nas', 'jacov', 'gradsign', 'zico', 'zen', 'gradnorm', 'naswot', 'synflow', 'snip', 'grasp', 'te_nas']
     if xargs.real_input:
         real_input_metrics = zero_shot_score_list
     else:
