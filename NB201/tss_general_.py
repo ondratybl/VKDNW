@@ -53,7 +53,7 @@ parser.add_argument("--api_data_path", type=str, default="/mnt/personal/tyblondr
                     help="")
 parser.add_argument("--save_dir", type=str, default='./results/tmp', help="Folder to save checkpoints and log.")
 parser.add_argument("--rand_seed", type=int, default=1, help="manual seed (we use 1-to-5)")
-parser.add_argument('--wandb_key', default='109a132addff7ecca7b2a99e1126515e5fa66377')
+parser.add_argument('--wandb_key', required=True, type=str, help="Wandb key.")
 parser.add_argument('--wandb_project', default='VKDNW')
 parser.add_argument('--wandb_name', default='VKDNW')
 parser.add_argument('--real_input', default=False, action='store_true')

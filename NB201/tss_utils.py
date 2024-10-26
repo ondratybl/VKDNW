@@ -120,7 +120,7 @@ def get_custom_gain(arr, exp=0.9, k=None):
     return np.sum(np.multiply(tar, coef))
 
 
-def get_metrics(test_df, pred_name, target='val_accs', show_plot=True):
+def get_metrics(test_df, pred_name, target='val_accs', top=50, show_plot=True):
 
     auc_roc, auc_pr, auc_pr10 = plot_roc(test_df[[pred_name, target]].to_numpy() / 100, pred_name, show_plot)
     gain_exp = get_custom_gain(test_df[[pred_name, target]].to_numpy() / 100, 1 / 2, 10)
@@ -130,6 +130,8 @@ def get_metrics(test_df, pred_name, target='val_accs', show_plot=True):
     pearson = test_df[[pred_name, target]].corr(method='pearson').iloc[0, 1]
     gain_norm = ndcg_score(y_true=np.array([test_df[target].astype(float)]),
                            y_score=np.array([test_df[pred_name].astype(float)]), k=20)
+    acc_top1 = test_df.nlargest(1, pred_name)[target].mean()
+    acc_top_mean = test_df.nlargest(top, pred_name)[target].mean()
 
     return {
         'pred_name': [pred_name],
@@ -142,6 +144,8 @@ def get_metrics(test_df, pred_name, target='val_accs', show_plot=True):
         'gain_norm': [gain_norm],
         'gain_exp': [gain_exp],
         'gain_log': [gain_log],
+        'acc_top1': [acc_top1],
+        f'acc_top{top}': [acc_top_mean],
     }
 
 
@@ -368,6 +372,8 @@ def generate_accs(api, dataset=None, features_path='../../GRAF/zc_combine/data/n
 
 
 def get_scores(df_run, compute_graf=True, zero_cost_score_list=None):
+
+    # ZS scores
     for zero_shot_score in zero_cost_score_list:
         print(f'Running {zero_shot_score}')
         if zero_shot_score.lower() == 'az_nas':
@@ -412,5 +418,8 @@ def get_scores(df_run, compute_graf=True, zero_cost_score_list=None):
 
         else:
             df_run[zero_shot_score + '_rank'] = df_run.loc[:, zero_shot_score]
+
+        # Trained model
+        ...
 
     return df_run
