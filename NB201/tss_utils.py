@@ -162,7 +162,7 @@ def get_stats(results_tmp, group, target, pred, method='kendall'):
     return group_stats
 
 
-def plot_stats(grouped, group, target, pred):
+def plot_stats(grouped, group, target, pred, fig_name):
     total_obs = grouped['count'].sum()
 
     fig, ax1 = plt.subplots()
@@ -184,7 +184,7 @@ def plot_stats(grouped, group, target, pred):
     fig.suptitle(target + ' & ' + pred + ' corr. ' + f'Obs. {total_obs}')
     fig.legend(loc='upper left', bbox_to_anchor=(0.1, 0.9))
 
-    # plt.savefig(f'data/{pred}_corr_per_{group}.eps', format='eps')
+    plt.savefig(f'{fig_name}.eps', format='eps')
     plt.show()
 
 
