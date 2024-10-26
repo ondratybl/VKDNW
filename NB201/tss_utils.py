@@ -190,7 +190,7 @@ def plot_stats(grouped, group, target, pred, fig_name):
 
 def analyze_results(api, df_results, zero_shot_score, target):
 
-        archs = list(df_results['arch'])
+        archs = list(df_results['net_str'])
         api_valid_accs = list(df_results[target])
         api_flops = list(df_results['flops'])
 
@@ -211,7 +211,7 @@ def analyze_results(api, df_results, zero_shot_score, target):
 
         fig_scale = 1.1
 
-        if zero_shot_score.lower() == 'az_nas' or zero_shot_score.lower() == 'te_nas':
+        if zero_shot_score.lower() == 'az_nas':
             rank_agg = None
             l = len(api_flops)
             rank_agg = np.log(stats.rankdata(api_flops) / l)
