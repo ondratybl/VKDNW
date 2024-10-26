@@ -249,16 +249,10 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
 
     init_model(model, init_method)
 
-    if trainloader is None:
+    if trainloader == None:
         input_ = torch.randn(size=[batch_size, 3, resolution, resolution], device=device, dtype=dtype)
     else:
-        input_ = next(iter(trainloader))
-        if type(input_) == list:
-            input_ = input_[0]
-    if gpu is not None:
-        input_ = input_.clone().cuda(device=device, non_blocking=True)
-    else:
-        input_ = input_.clone()
+        input_ = next(iter(trainloader))[0].to(device)
 
     fisher_prob = get_fisher(model, input_, use_logits=False, params_grad_len=params_grad_len)
 

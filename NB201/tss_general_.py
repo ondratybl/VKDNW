@@ -116,11 +116,12 @@ def zero_shot_compute(xargs, data_loader, zero_shot_score_list=[], real_input_me
             if zero_shot_score in real_input_metrics:
                 train_loader = data_loader
             else:
-                train_loader = DataLoader(
-                    RandomDataset(2*xargs.batch_size, xargs.resolution, xargs.rand_seed), # we need two batches for ZEN
-                    batch_size=xargs.batch_size,
-                    shuffle=False,
-                )
+                #train_loader = DataLoader(
+                #    RandomDataset(2*xargs.batch_size, xargs.resolution, xargs.rand_seed),  # we need two batches for ZEN
+                #    batch_size=xargs.batch_size,
+                #    shuffle=False,
+                #)
+                train_loader = None
 
             info_dict.update(score_fn.compute_nas_score(
                 network, gpu=xargs.gpu, trainloader=train_loader, resolution=xargs.resolution, batch_size=xargs.batch_size
@@ -207,7 +208,7 @@ if __name__ == '__main__':
         with open("./tss_all_arch.pickle", "wb") as fp:
             pickle.dump(archs, fp)
 
-    zero_shot_score_list = ['vkdnw', 'jacov', 'az_nas', 'gradsign', 'zico', 'zen', 'gradnorm', 'naswot', 'synflow', 'snip', 'grasp', 'te_nas']
+    zero_shot_score_list = ['vkdnw', 'az_nas']#'jacov', 'az_nas', 'gradsign', 'zico', 'zen', 'gradnorm', 'naswot', 'synflow', 'snip', 'grasp', 'te_nas']
     if xargs.real_input:
         real_input_metrics = zero_shot_score_list
     else:

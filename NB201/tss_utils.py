@@ -319,39 +319,35 @@ def get_results_from_api(api, arch, dataset='cifar10'):
     return acc, flops, params
 
 
-def generate_accs(api, dataset='cifar10', filter=True):
+def generate_accs(api, dataset=None, features_path='../../GRAF/zc_combine/data/nb201_features.csv'):
 
-    if filter:
-        accs = pd.read_csv('../../GRAF/zc_combine/data/nb201_valid_nets.csv')[['net_str']]
-        accs.rename(columns={'net_str': 'arch'}, inplace=True)
+    import os
+    import pickle
+    if os.path.exists("./tss_all_arch.pickle"):
+        with open("./tss_all_arch.pickle", "rb") as fp:
+            archs = pickle.load(fp)
     else:
-        import os
-        import pickle
-        if os.path.exists("./tss_all_arch.pickle"):
-            with open("./tss_all_arch.pickle", "rb") as fp:
-                archs = pickle.load(fp)
-        else:
-            import random
-            from xautodl.models.cell_searchs.genotypes import Structure
-            from xautodl.models import get_search_spaces
-            def random_genotype(max_nodes, op_names):
-                genotypes = []
-                for i in range(1, max_nodes):
-                    xlist = []
-                    for j in range(i):
-                        node_str = "{:}<-{:}".format(i, j)
-                        op_name = random.choice(op_names)
-                        xlist.append((op_name, j))
-                    genotypes.append(tuple(xlist))
-                arch = Structure(genotypes)
-                return arch
-            search_space = get_search_spaces('tss', "nats-bench")
-            archs = random_genotype(4, search_space).gen_all(search_space, 4, False)
+        import random
+        from xautodl.models.cell_searchs.genotypes import Structure
+        from xautodl.models import get_search_spaces
+        def random_genotype(max_nodes, op_names):
+            genotypes = []
+            for i in range(1, max_nodes):
+                xlist = []
+                for j in range(i):
+                    node_str = "{:}<-{:}".format(i, j)
+                    op_name = random.choice(op_names)
+                    xlist.append((op_name, j))
+                genotypes.append(tuple(xlist))
+            arch = Structure(genotypes)
+            return arch
+        search_space = get_search_spaces('tss', "nats-bench")
+        archs = random_genotype(4, search_space).gen_all(search_space, 4, False)
 
-        accs = pd.DataFrame({'arch': [a.tostr() for a in archs]})
+    accs = pd.DataFrame({'net_str': [a.tostr() for a in archs]})
 
     api_valid_accs, api_flops, api_params = [], [], []
-    for a in accs['arch']:
+    for a in accs['net_str']:
         try:
             valid_acc, flops, params = get_results_from_api(api, a, dataset=dataset)
             api_valid_accs.append(valid_acc)
@@ -364,4 +360,57 @@ def generate_accs(api, dataset='cifar10', filter=True):
     accs['flops'] = api_flops
     accs['params'] = api_params
 
+    features = pd.read_csv(features_path)
+
+    accs = pd.merge(accs, features, how='left', on='net_str')
+
     return accs
+
+
+def get_scores(df_run, compute_graf=True, zero_cost_score_list=None):
+    for zero_shot_score in zero_cost_score_list:
+        print(f'Running {zero_shot_score}')
+        if zero_shot_score.lower() == 'az_nas':
+            rank_agg = None
+            l = df_run.shape[0]
+            rank_agg = np.log(stats.rankdata(df_run.loc[:, 'flops']) / l)
+            for k in ['expressivity', 'progressivity', 'trainability']:
+                if rank_agg is None:
+                    rank_agg = np.log(stats.rankdata(df_run.loc[:, k]) / l)
+                else:
+                    rank_agg = rank_agg + np.log(stats.rankdata(df_run.loc[:, k]) / l)
+            df_run[zero_shot_score + '_rank'] = rank_agg
+
+        elif zero_shot_score.lower() == 'te_nas':
+            rank_agg = None
+            for k in ['ntk', 'linear_region']:
+                if rank_agg is None:
+                    rank_agg = stats.rankdata(df_run.loc[:, k])
+                else:
+                    rank_agg = rank_agg + stats.rankdata(df_run.loc[:, k])
+
+            df_run[zero_shot_score + '_rank'] = rank_agg
+
+        elif zero_shot_score.lower() == 'vkdnw':
+            df_run.loc[:, 'temp'] = -(df_run.loc[:, f'vkdnw_lambda_{8}'] / df_run.loc[:, f'vkdnw_lambda_{3}']).apply(
+                np.log)
+            df_run[zero_shot_score + '_rank'] = df_run[['vkdnw_dim', 'temp']].apply(tuple, axis=1).rank(method='dense',
+                                                                                                        ascending=True).astype(
+                int).apply(np.log)
+
+            df_run[zero_shot_score + '_exp_rank'] = df_run[zero_shot_score + '_rank'] + df_run[
+                'progressivity'].rank().apply(np.log) + df_run['trainability'].rank().apply(np.log) + df_run[
+                                                        'flops'].rank().apply(np.log)
+
+            df_run[zero_shot_score + '_prog_rank'] = df_run[zero_shot_score + '_rank'] + df_run[
+                'expressivity'].rank().apply(np.log) + df_run['trainability'].rank().apply(np.log) + df_run[
+                                                         'flops'].rank().apply(np.log)
+
+            df_run[zero_shot_score + '_train_rank'] = df_run[zero_shot_score + '_rank'] + df_run[
+                'progressivity'].rank().apply(np.log) + df_run['expressivity'].rank().apply(np.log) + df_run[
+                                                          'flops'].rank().apply(np.log)
+
+        else:
+            df_run[zero_shot_score + '_rank'] = df_run.loc[:, zero_shot_score]
+
+    return df_run
