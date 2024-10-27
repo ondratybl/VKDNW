@@ -68,7 +68,7 @@ def parse_cmd_options(argv):
                         help='number of classes')
     parser.add_argument('--dataset', type=str, default='ImageNet16-120',
                         help='type of dataset')
-    parser.add_argument('--datapath', type=str, default='../NB201/ImageNet16-120',
+    parser.add_argument('--datapath', type=str, default='../NB201/cifar.python/ImageNet16',
                         help='root of path')
     parser.add_argument('--num_worker', type=int, default=40,
                         help='root of path')

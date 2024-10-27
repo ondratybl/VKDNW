@@ -162,7 +162,7 @@ def get_stats(results_tmp, group, target, pred, method='kendall'):
     return group_stats
 
 
-def plot_stats(grouped, group, target, pred, fig_name):
+def plot_stats(grouped, group, target, pred, fig_name, plot=False):
     total_obs = grouped['count'].sum()
 
     fig, ax1 = plt.subplots()
@@ -185,7 +185,10 @@ def plot_stats(grouped, group, target, pred, fig_name):
     fig.legend(loc='upper left', bbox_to_anchor=(0.1, 0.9))
 
     plt.savefig(f'{fig_name}.eps', format='eps')
-    plt.show()
+    if plot:
+        plt.show()
+    else:
+        plt.close()
 
 
 def analyze_results(api, df_results, zero_shot_score, target):
