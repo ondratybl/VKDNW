@@ -208,10 +208,10 @@ def main(args, argv):
             datax, datay = batch[0].cuda(), batch[1].cuda()
             trainbatches.append([datax, datay])
         
-    best_structure_txt = os.path.join(args.save_dir, 'best_structure.txt')
-    if os.path.isfile(best_structure_txt):
-        print('skip ' + best_structure_txt)
-        return None
+    #best_structure_txt = os.path.join(args.save_dir, 'best_structure.txt')
+    #if os.path.isfile(best_structure_txt):
+    #    print('skip ' + best_structure_txt)
+    #    return None
 
     # load search space config .py file
     select_search_space = global_utils.load_py_module_from_path(args.search_space)
