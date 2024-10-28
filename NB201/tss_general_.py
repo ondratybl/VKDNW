@@ -213,7 +213,7 @@ if __name__ == '__main__':
         with open("./tss_all_arch.pickle", "wb") as fp:
             pickle.dump(archs, fp)
 
-    zero_shot_score_list = ['vkdnw']#, 'az_nas', 'jacov', 'gradsign', 'zico', 'zen', 'gradnorm', 'naswot', 'synflow', 'snip', 'grasp', 'te_nas']
+    zero_shot_score_list = ['vkdnw', 'az_nas', 'jacov', 'gradsign', 'zico', 'zen', 'gradnorm', 'naswot', 'synflow', 'snip', 'grasp', 'te_nas']
     if xargs.real_input:
         real_input_metrics = zero_shot_score_list
     else:
