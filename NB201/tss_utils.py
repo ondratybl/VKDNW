@@ -381,6 +381,10 @@ def get_scores(df_run, compute_graf=True, zero_cost_score_list=None):
                 'progressivity'].rank().apply(np.log) + df_run['expressivity'].rank().apply(np.log) + df_run[
                                                           'flops'].rank().apply(np.log)
 
+            df_run[zero_shot_score + '_comb_rank'] = df_run[zero_shot_score + '_rank'] + df_run[
+                'expressivity'].rank().apply(np.log) + df_run['trainability'].rank().apply(np.log) + df_run[
+                                                         'flops'].rank().apply(np.log) + df_run['jacov'].rank().apply(np.log)
+
         else:
             df_run[zero_shot_score + '_rank'] = df_run.loc[:, zero_shot_score]
 
