@@ -11,6 +11,7 @@ import torch
 from torch import nn
 import numpy as np
 import gc
+import random
 
 
 def kaiming_normal_fanin_init(m):
@@ -207,7 +208,7 @@ def get_jacobian_index(model, input, param_idx):
 
     params_grad = {k: v.flatten()[param_idx:param_idx+1].detach() for k, v in model.named_parameters()}
     buffers = {k: v.detach() for k, v in model.named_buffers()}
-    params_grad = dict(list(params_grad.items())[-128:])
+    params_grad = dict(random.sample(list(params_grad.items()), 128))
 
     def jacobian_sample(sample):
         def compute_prediction(params_grad_tmp):
@@ -354,5 +355,7 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
 
     # Eigenvectors
     quantiles = torch.quantile(lambdas, torch.arange(0.1, 1.0, 0.1, device=lambdas.device))
+    temp = quantiles / (torch.linalg.norm(quantiles, ord=1, keepdim=False).item() + 1e-10)
+    info.update({'vkdnw_entropy': -(temp * torch.log(temp + 1e-10)).sum().cpu().numpy().item()})
     info.update({'vkdnw_lambda_' + str(i): v.item() for (i, v) in enumerate(quantiles)})
     return info
