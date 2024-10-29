@@ -59,6 +59,7 @@ parser.add_argument('--wandb_name', default='VKDNW')
 parser.add_argument('--real_input', default=False, action='store_true')
 parser.add_argument('--batch_size', type=int, default=64, help="Batch size.")
 parser.add_argument('--params_grad_len', type=int, default=128, help="Number of layers to consider.")
+parser.add_argument('--zero_shot_score', type=str, default=None, choices=[None, 'vkdnw', 'az_nas', 'jacov', 'gradsign', 'zico', 'zen', 'gradnorm', 'naswot', 'synflow', 'snip', 'grasp', 'te_nas'])
 
 
 def random_genotype(max_nodes, op_names):
@@ -213,7 +214,10 @@ if __name__ == '__main__':
         with open("./tss_all_arch.pickle", "wb") as fp:
             pickle.dump(archs, fp)
 
-    zero_shot_score_list = ['vkdnw']#, 'az_nas', 'jacov', 'gradsign', 'zico', 'zen', 'gradnorm', 'naswot', 'synflow', 'snip', 'grasp', 'te_nas']
+    if xargs.zero_shot_score:
+        zero_shot_score_list = [xargs.zero_shot_score]
+    else:
+        ['vkdnw', 'az_nas', 'jacov', 'gradsign', 'zico', 'zen', 'gradnorm', 'naswot', 'synflow', 'snip', 'grasp', 'te_nas']
     if xargs.real_input:
         real_input_metrics = zero_shot_score_list
     else:
