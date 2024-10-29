@@ -209,7 +209,7 @@ def get_jacobian_index(model, input, param_idx, params_grad_len):
     buffers = {k: v.detach() for k, v in model.named_buffers()}
 
     if params_grad_len > 0:
-        params_grad = dict(list(params_grad.items())[0:params_grad_len])
+        params_grad = dict(list(params_grad.items())[-params_grad_len:])
     else:
         params_grad = dict(list(params_grad.items())[0:(len(params_grad) // -params_grad_len)])
 
@@ -279,7 +279,7 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
     info['vkdnw_chisquare'] = chisquare(f_obs).statistic
 
     # Eigenvectors
-    quantiles = torch.quantile(lambdas, torch.arange(0., 1.1, 0.1, device=lambdas.device))
+    quantiles = torch.quantile(lambdas, torch.arange(0., 1.1, 0.05, device=lambdas.device))
     temp = quantiles/(torch.linalg.norm(quantiles, ord=1, keepdim=False).item()+1e-10)
     info.update({'vkdnw_entropy': -(temp*torch.log(temp+1e-10)).sum().cpu().numpy().item()})
     info.update({'vkdnw_lambda_' + str(i): v.item() for (i, v) in enumerate(quantiles)})
