@@ -322,12 +322,12 @@ def main(args, argv):
         for k, v in the_nas_core.items():
             popu_zero_shot_score_dict[k].append(v)
 
-        temp = pd.DataFrame(popu_zero_shot_score_dict)
-        temp['vkdnw_ratio'] = -(temp['vkdnw_lambda_8']/temp['vkdnw_lambda_3']).apply(np.log)
-        popu_zero_shot_score_dict['vkdnw_progressivity'] = list(temp[['vkdnw_dim', 'vkdnw_ratio']].apply(tuple, axis=1).rank(method='dense', ascending=True).values)
+        #temp = pd.DataFrame(popu_zero_shot_score_dict)
+        #temp['vkdnw_ratio'] = -(temp['vkdnw_lambda_8']/temp['vkdnw_lambda_3']).apply(np.log)
+        #popu_zero_shot_score_dict['vkdnw_progressivity'] = list(temp[['vkdnw_dim', 'vkdnw_ratio']].apply(tuple, axis=1).rank(method='dense', ascending=True).values)
 
         popu_zero_shot_score_list = None
-        for key in ['complexity', 'expressivity', 'trainability', 'vkdnw_progressivity']:
+        for key in ['complexity', 'expressivity', 'trainability', 'progressivity', 'vkdnw_entropy']:
             l = len(popu_zero_shot_score_dict[key])
             _rank = stats.rankdata(popu_zero_shot_score_dict[key])
             if popu_zero_shot_score_list is not None:
@@ -335,7 +335,7 @@ def main(args, argv):
             else:
                 popu_zero_shot_score_list = np.log(_rank/l)
 
-        popu_zero_shot_score_dict.pop('vkdnw_progressivity')
+        #popu_zero_shot_score_dict.pop('vkdnw_progressivity')
         popu_zero_shot_score_list = popu_zero_shot_score_list.tolist()
         popu_structure_list.append(random_structure_str)
         popu_latency_list.append(the_latency)
