@@ -258,7 +258,7 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
     else:
         input_ = input_.clone()
 
-
+    """
     if model.no_reslink:
         layer_features = model.extract_layer_features_nores(input_)
     else:
@@ -329,6 +329,7 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
     info['progressivity'] = float(progressivity) if not np.isnan(progressivity) else -np.inf
     info['trainability'] = float(trainability) if not np.isnan(trainability) else -np.inf
     info['complexity'] = float(model.get_FLOPs(resolution))
+    """
 
     fisher_prob = get_fisher(model, input_, use_logits=False)
 
@@ -344,6 +345,7 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
     # Dimenson
     info['vkdnw_dim'] = float(len(list(model.named_parameters())))
 
+    """
     #Chisquare
     bin_edges = [1]
     for i in range(18):
@@ -353,6 +355,7 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
 
     f_obs, _ = np.histogram(lambdas.cpu().numpy(), bins=bin_edges)
     info['vkdnw_chisquare'] = chisquare(f_obs).statistic
+    """
 
     # Eigenvectors
     quantiles = torch.quantile(lambdas, torch.arange(0., 1.1, 0.1, device=lambdas.device))
