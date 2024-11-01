@@ -279,7 +279,7 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
     info['vkdnw_chisquare'] = chisquare(f_obs).statistic
 
     # Eigenvectors
-    quantiles = torch.quantile(lambdas, torch.arange(0.1, 1.1, 0.1, device=lambdas.device))
+    quantiles = torch.quantile(lambdas, torch.arange(0.1, 1., 0.1, device=lambdas.device))
     temp = quantiles / (torch.linalg.norm(quantiles, ord=1, keepdim=False).item() + 1e-10)
     info.update({'vkdnw_entropy': -(temp * torch.log(temp + 1e-10)).sum().cpu().numpy().item()})
     info.update({'vkdnw_lambda_' + str(i): v.item() for (i, v) in enumerate(quantiles)})

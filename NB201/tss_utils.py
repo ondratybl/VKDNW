@@ -363,9 +363,19 @@ def get_scores(df_run, compute_graf=True, zero_cost_score_list=None):
             df_run[zero_shot_score + '_rank'] = rank_agg
 
         elif zero_shot_score.lower() == 'vkdnw':
-            df_run.loc[:, 'temp'] = -(df_run.loc[:, f'vkdnw_lambda_{8}'] / df_run.loc[:, f'vkdnw_lambda_{3}']).apply(
-                np.log)
-            df_run[zero_shot_score + '_rank'] = df_run[['vkdnw_dim', 'temp']].apply(tuple, axis=1).rank(method='dense',
+            #l_names = [p for p in df_run.columns if '_lambda_' in p]
+            #if 'vkdnw_lambda_9' in l_names:
+            #    l_names.remove('vkdnw_lambda_9')
+
+            #def compute(lamdbas):
+            #    temp = lamdbas / (np.linalg.norm(lamdbas, ord=1).item() + 1e-10)
+            #    return -(temp * np.log(temp + 1e-10)).sum()
+
+            #df_run['vkdnw_entropy'] = df_run[l_names].apply(compute, axis=1)
+
+            #df_run.loc[:, 'temp'] = -(df_run.loc[:, f'vkdnw_lambda_{8}'] / df_run.loc[:, f'vkdnw_lambda_{3}']).apply(
+            #    np.log)
+            df_run[zero_shot_score + '_rank'] = df_run[['vkdnw_dim', 'vkdnw_entropy']].apply(tuple, axis=1).rank(method='dense',
                                                                                                         ascending=True).astype(
                 int).apply(np.log)
 
@@ -385,8 +395,6 @@ def get_scores(df_run, compute_graf=True, zero_cost_score_list=None):
                 'expressivity'].rank().apply(np.log) + df_run['trainability'].rank().apply(np.log) + df_run[
                                                          'flops'].rank().apply(np.log) + df_run['jacov'].rank().apply(np.log)
 
-            df_run['vkdnw_entropy_rank'] = df_run[['vkdnw_dim', 'vkdnw_entropy']].apply(tuple, axis=1).rank(method='dense',
-                                                                                         ascending=True).astype(int)
 
         else:
             df_run[zero_shot_score + '_rank'] = df_run.loc[:, zero_shot_score]
