@@ -278,6 +278,12 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
     f_obs, _ = np.histogram(lambdas.cpu().numpy(), bins=bin_edges)
     info['vkdnw_chisquare'] = chisquare(f_obs).statistic
 
+    # Dispersion
+    trace = torch.trace(fisher_prob)
+    trace2 = torch.trace(torch.matmul(fisher_prob, fisher_prob))
+    info['vkdnw_dispersion'] = trace2/(trace**2) if trace > 0 else None
+    info['vkdnw_dispersion2'] = (trace ** 2)/trace2 if trace2 > 0 else None
+
     # Eigenvectors
     quantiles = torch.quantile(lambdas, torch.arange(0.1, 1., 0.1, device=lambdas.device))
     temp = quantiles / (torch.linalg.norm(quantiles, ord=1, keepdim=False).item() + 1e-10)
