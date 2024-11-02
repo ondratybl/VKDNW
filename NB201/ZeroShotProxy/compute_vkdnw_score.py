@@ -209,7 +209,7 @@ def get_jacobian_index(model, input, param_idx, params_grad_len):
     buffers = {k: v.detach() for k, v in model.named_buffers()}
 
     if params_grad_len > 0:
-        params_grad = dict(list(params_grad.items())[-params_grad_len:])
+        params_grad = dict(list(params_grad.items())[0:params_grad_len])
     else:
         params_grad = dict(list(params_grad.items())[0:(len(params_grad) // -params_grad_len)])
 
