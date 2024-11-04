@@ -68,6 +68,7 @@ def parse_cmd_options(argv):
     parser.add_argument('--wandb_key', default='109a132addff7ecca7b2a99e1126515e5fa66377')
     parser.add_argument('--wandb_project', default='VKDNW')
     parser.add_argument('--wandb_name', default='VKDNW_EXHAUSTIVE_EVALUATE')
+    parser.add_argument('--wandb_archs', type=str, default='')
 
     module_opt, _ = parser.parse_known_args(argv)
     return module_opt
@@ -80,27 +81,8 @@ def main(args):
     import pandas as pd
     import wandb
     api_wandb = wandb.Api()
-    runs_feasible = None
-    for run_str in [
-        'nazderaze/VKDNW/le027c6i',
-        'nazderaze/VKDNW/e5ghgrna',
-        'nazderaze/VKDNW/9t4z9soy',
-        'nazderaze/VKDNW/xu12jwh3',
-        'nazderaze/VKDNW/p4w49gbw',
-        'nazderaze/VKDNW/8o8nv1bw',
-        'nazderaze/VKDNW/a2ohrrxp',
-        'nazderaze/VKDNW/uk275wky',
-        'nazderaze/VKDNW/5v9c0ueh',
-        'nazderaze/VKDNW/vt926kqu',
-    ]:
-        run = pd.DataFrame(api_wandb.run(run_str).scan_history())
-
-        if runs_feasible is None:
-            runs_feasible = run
-        else:
-            runs_feasible = pd.concat([runs_feasible, run], ignore_index=True)
-
-    for net_str in runs_feasible['net_str']:
+    run = pd.DataFrame(api_wandb.run(args.wandb_archs).scan_history())
+    for net_str in run['net_str']:
 
         net = AnyPlainNet(num_classes=10, plainnet_struct=net_str, no_create=False, no_reslink=False).cuda(args.gpu)
         # check the model size
