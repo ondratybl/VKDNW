@@ -57,7 +57,7 @@ def parse_cmd_options(argv):
     parser.add_argument('--budget_latency', type=float, default=None, help='latency of forward inference per mini-batch, e.g., 1e-3 means 1ms.')
     parser.add_argument('--max_layers', type=int, default=14, help='max number of layers of the network.')
     parser.add_argument('--batch_size', type=int, default=32, help='number of instances in one mini-batch.')
-    parser.add_argument('--input_image_size', type=int, default=32,
+    parser.add_argument('--input_image_size', type=int, default=224,
                         help='resolution of input image, usually 32 for CIFAR and 224 for ImageNet.')
     parser.add_argument('--population_size', type=int, default=2048, help='population size of evolution.')
     parser.add_argument('--save_dir', type=str, default='./',
@@ -80,6 +80,7 @@ def parse_cmd_options(argv):
     parser.add_argument('--wandb_key', default='109a132addff7ecca7b2a99e1126515e5fa66377')
     parser.add_argument('--wandb_project', default='VKDNW')
     parser.add_argument('--wandb_name', default='VKDNW_EVOLUTION')
+    parser.add_argument('--init_net', default=None, type=str, help='init net string')
                         
     module_opt, _ = parser.parse_known_args(argv)
     return module_opt
@@ -221,7 +222,7 @@ def main(args, argv):
     args.plainnet_struct_txt = 'plainnet_zico.txt'
 
     masternet = AnyPlainNet(num_classes=args.num_classes, opt=args, argv=argv, no_create=True)
-    initial_structure_str = str(masternet)
+    initial_structure_str = args.init_net #str(masternet)
 
     popu_structure_list = []
     search_time_list = []
@@ -265,7 +266,7 @@ def main(args, argv):
                 the_model = AnyPlainNet(num_classes=args.num_classes, plainnet_struct=random_structure_str,
                                         no_create=True, no_reslink=False)
             the_layers = the_model.get_num_layers()
-            if the_layers not in [args.max_layers - 1, args.max_layers, args.max_layers + 1]:
+            if the_layers > args.max_layers:
                 continue
 
         if args.budget_model_size is not None:
@@ -327,7 +328,7 @@ def main(args, argv):
         #popu_zero_shot_score_dict['vkdnw_progressivity'] = list(temp[['vkdnw_dim', 'vkdnw_ratio']].apply(tuple, axis=1).rank(method='dense', ascending=True).values)
 
         popu_zero_shot_score_list = None
-        for key in ['complexity', 'expressivity', 'trainability', 'progressivity', 'vkdnw_entropy']:
+        for key in ['complexity', 'expressivity', 'progressivity']:#, 'trainability', 'vkdnw_entropy']:
             l = len(popu_zero_shot_score_dict[key])
             _rank = stats.rankdata(popu_zero_shot_score_dict[key])
             if popu_zero_shot_score_list is not None:

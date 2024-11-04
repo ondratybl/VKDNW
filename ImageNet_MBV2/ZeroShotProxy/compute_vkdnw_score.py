@@ -257,7 +257,7 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
         input_ = input_.clone().cuda(device=device, non_blocking=True)
     else:
         input_ = input_.clone()
-    """
+
     if model.no_reslink:
         layer_features = model.extract_layer_features_nores(input_)
     else:
@@ -282,7 +282,7 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
     progressivity = np.min(expressivity_scores[1:] - expressivity_scores[:-1])
     expressivity = np.sum(expressivity_scores)
     #####################################################################
-
+    """
     ################ trainability score ##############
     scores = []
     for i in reversed(range(1, len(layer_features))):
@@ -323,14 +323,13 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
             scores.append(-s.max().item() - 1 / (s.max().item() + 1e-6) + 2)
     trainability = np.mean(scores)
     #################################################
-
+    """
     info['expressivity'] = float(expressivity) if not np.isnan(expressivity) else -np.inf
     info['progressivity'] = float(progressivity) if not np.isnan(progressivity) else -np.inf
-    info['trainability'] = float(trainability) if not np.isnan(trainability) else -np.inf
+    #info['trainability'] = float(trainability) if not np.isnan(trainability) else -np.inf
     info['complexity'] = float(model.get_FLOPs(resolution))
-    
-    """
 
+    """
     fisher_prob = get_fisher(model, input_, use_logits=False)
 
     try:
@@ -345,7 +344,6 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
     # Dimenson
     info['vkdnw_dim'] = float(len(list(model.named_parameters())))
 
-    """
     #Chisquare
     bin_edges = [1]
     for i in range(18):
@@ -355,11 +353,11 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
 
     f_obs, _ = np.histogram(lambdas.cpu().numpy(), bins=bin_edges)
     info['vkdnw_chisquare'] = chisquare(f_obs).statistic
-    """
 
     # Eigenvectors
     quantiles = torch.quantile(lambdas, torch.arange(0., 1.1, 0.1, device=lambdas.device))
     temp = quantiles / (torch.linalg.norm(quantiles, ord=1, keepdim=False).item() + 1e-10)
     info.update({'vkdnw_entropy': -(temp * torch.log(temp + 1e-10)).sum().cpu().numpy().item()})
     info.update({'vkdnw_lambda_' + str(i): v.item() for (i, v) in enumerate(quantiles)})
+    """
     return info
