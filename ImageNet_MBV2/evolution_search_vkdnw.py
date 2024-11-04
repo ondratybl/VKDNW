@@ -328,7 +328,7 @@ def main(args, argv):
         #popu_zero_shot_score_dict['vkdnw_progressivity'] = list(temp[['vkdnw_dim', 'vkdnw_ratio']].apply(tuple, axis=1).rank(method='dense', ascending=True).values)
 
         popu_zero_shot_score_list = None
-        for key in ['complexity', 'expressivity', 'progressivity']:#, 'trainability', 'vkdnw_entropy']:
+        for key in ['complexity', 'expressivity', 'progressivity', 'vkdnw_entropy']: #, 'trainability']
             l = len(popu_zero_shot_score_dict[key])
             _rank = stats.rankdata(popu_zero_shot_score_dict[key])
             if popu_zero_shot_score_list is not None:

@@ -329,7 +329,6 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
     #info['trainability'] = float(trainability) if not np.isnan(trainability) else -np.inf
     info['complexity'] = float(model.get_FLOPs(resolution))
 
-    """
     fisher_prob = get_fisher(model, input_, use_logits=False)
 
     try:
@@ -359,5 +358,4 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
     temp = quantiles / (torch.linalg.norm(quantiles, ord=1, keepdim=False).item() + 1e-10)
     info.update({'vkdnw_entropy': -(temp * torch.log(temp + 1e-10)).sum().cpu().numpy().item()})
     info.update({'vkdnw_lambda_' + str(i): v.item() for (i, v) in enumerate(quantiles)})
-    """
     return info
