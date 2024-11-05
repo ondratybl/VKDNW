@@ -208,21 +208,14 @@ def main(args, argv):
                 break
             datax, datay = batch[0].cuda(), batch[1].cuda()
             trainbatches.append([datax, datay])
-        
-    #best_structure_txt = os.path.join(args.save_dir, 'best_structure.txt')
-    #if os.path.isfile(best_structure_txt):
-    #    print('skip ' + best_structure_txt)
-    #    return None
 
     # load search space config .py file
     select_search_space = global_utils.load_py_module_from_path(args.search_space)
 
     # load masternet
     AnyPlainNet = Masternet.MasterNet
-    args.plainnet_struct_txt = 'plainnet_zico.txt'
 
-    masternet = AnyPlainNet(num_classes=args.num_classes, opt=args, argv=argv, no_create=True)
-    initial_structure_str = args.init_net #str(masternet)
+    initial_structure_str = args.init_net
 
     popu_structure_list = []
     search_time_list = []
@@ -328,7 +321,8 @@ def main(args, argv):
         #popu_zero_shot_score_dict['vkdnw_progressivity'] = list(temp[['vkdnw_dim', 'vkdnw_ratio']].apply(tuple, axis=1).rank(method='dense', ascending=True).values)
 
         popu_zero_shot_score_list = None
-        for key in ['complexity', 'expressivity', 'progressivity', 'vkdnw_entropy']: #, 'trainability']
+        for key in ['complexity', 'expressivity', 'progressivity', 'vkdnw_entropy', 'trainability']:
+
             l = len(popu_zero_shot_score_dict[key])
             _rank = stats.rankdata(popu_zero_shot_score_dict[key])
             if popu_zero_shot_score_list is not None:

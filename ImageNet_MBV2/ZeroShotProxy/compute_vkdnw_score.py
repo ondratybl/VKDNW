@@ -282,7 +282,6 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
     progressivity = np.min(expressivity_scores[1:] - expressivity_scores[:-1])
     expressivity = np.sum(expressivity_scores)
     #####################################################################
-    """
     ################ trainability score ##############
     scores = []
     for i in reversed(range(1, len(layer_features))):
@@ -323,10 +322,10 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
             scores.append(-s.max().item() - 1 / (s.max().item() + 1e-6) + 2)
     trainability = np.mean(scores)
     #################################################
-    """
+
     info['expressivity'] = float(expressivity) if not np.isnan(expressivity) else -np.inf
     info['progressivity'] = float(progressivity) if not np.isnan(progressivity) else -np.inf
-    #info['trainability'] = float(trainability) if not np.isnan(trainability) else -np.inf
+    info['trainability'] = float(trainability) if not np.isnan(trainability) else -np.inf
     info['complexity'] = float(model.get_FLOPs(resolution))
 
     fisher_prob = get_fisher(model, input_, use_logits=False)
