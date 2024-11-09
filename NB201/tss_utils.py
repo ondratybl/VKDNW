@@ -120,32 +120,27 @@ def get_custom_gain(arr, exp=0.9, k=None):
     return np.sum(np.multiply(tar, coef))
 
 
-def get_metrics(test_df, pred_name, target='val_accs', top=50, show_plot=True):
+def get_metrics(test_df, pred_name, target='val_accs', show_plot=False, seed=1):
 
-    auc_roc, auc_pr, auc_pr10 = plot_roc(test_df[[pred_name, target]].to_numpy() / 100, pred_name, show_plot)
-    gain_exp = get_custom_gain(test_df[[pred_name, target]].to_numpy() / 100, 1 / 2, 10)
-    gain_log = get_custom_gain(test_df[[pred_name, target]].to_numpy() / 100, -1, 10)
+    #auc_roc, auc_pr, auc_pr10 = plot_roc(test_df[[pred_name, target]].to_numpy() / 100, pred_name, show_plot)
+    #gain_exp = get_custom_gain(test_df[[pred_name, target]].to_numpy() / 100, 1 / 2, 10)
+    #gain_log = get_custom_gain(test_df[[pred_name, target]].to_numpy() / 100, -1, 10)
     kendall = test_df[[pred_name, target]].corr(method='kendall').iloc[0, 1]
     spearman = test_df[[pred_name, target]].corr(method='spearman').iloc[0, 1]
     pearson = test_df[[pred_name, target]].corr(method='pearson').iloc[0, 1]
-    gain_norm = ndcg_score(y_true=np.array([test_df[target].astype(float)]),
-                           y_score=np.array([test_df[pred_name].astype(float)]), k=20)
+    ndcg = ndcg_score(y_true=np.array([test_df[target].astype(float)]),
+                           y_score=np.array([test_df[pred_name].astype(float)]), k=5000)
     acc_top1 = test_df.nlargest(1, pred_name)[target].mean()
-    acc_top_mean = test_df.nlargest(top, pred_name)[target].mean()
+    acc_top1_true = test_df[target].max()
 
     return {
         'pred_name': [pred_name],
         'kendall': [kendall],
         'spearman': [spearman],
         'pearson': [pearson],
-        'auc_roc': auc_roc,
-        'auc_pr': auc_pr,
-        'auc_pr10': auc_pr10,
-        'gain_norm': [gain_norm],
-        'gain_exp': [gain_exp],
-        'gain_log': [gain_log],
-        'acc_top1': [acc_top1],
-        f'acc_top{top}': [acc_top_mean],
+        'ndcg': [ndcg],
+        'acc_top': [acc_top1],
+        'acc_top_true': [acc_top1_true],
     }
 
 
@@ -197,14 +192,8 @@ def analyze_results(api, df_results, zero_shot_score, target):
     api_flops = list(df_results['flops'])
 
     if zero_shot_score == 'vkdnw':
-        import pandas as pd
-        results = pd.DataFrame(df_results)
-        results['vkdnw_ratio'] = -(results['vkdnw_lambda_8'] / results['vkdnw_lambda_3']).apply(np.log)
-        results['vkdnw'] = results[['vkdnw_dim', 'vkdnw_ratio']].apply(tuple, axis=1).rank(method='dense',
-                                                                                           ascending=True).astype(
-            int)
-        results = {'vkdnw': results['vkdnw'], 'expressivity': list(df_results['expressivity']),
-                   'trainability': list(df_results['trainability'])}
+        results = {'vkdnw': list(df_results['vkdnw_entropy']), 'expressivity': list(df_results['expressivity']),
+                   'trainability': list(df_results['trainability']), 'jacov': list(df_results['jacov'])}
     elif zero_shot_score == 'te_nas':
         results = {'ntk': list(df_results['ntk']), 'linear_region': list(df_results['linear_region'])}
     elif zero_shot_score == 'az_nas':
