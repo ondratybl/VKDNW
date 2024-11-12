@@ -128,8 +128,14 @@ def get_metrics(test_df, pred_name, target='val_accs', show_plot=False, seed=1):
     kendall = test_df[[pred_name, target]].corr(method='kendall').iloc[0, 1]
     spearman = test_df[[pred_name, target]].corr(method='spearman').iloc[0, 1]
     pearson = test_df[[pred_name, target]].corr(method='pearson').iloc[0, 1]
-    ndcg = ndcg_score(y_true=np.array([test_df[target].astype(float)]),
-                           y_score=np.array([test_df[pred_name].astype(float)]), k=5000)
+    ndcg50 = ndcg_score(y_true=2**np.array([test_df[target].astype(float)])-1,
+                           y_score=np.array([test_df[pred_name].astype(float)]), k=50, ignore_ties=True)
+    ndcg100 = ndcg_score(y_true=2**np.array([test_df[target].astype(float)])-1,
+                           y_score=np.array([test_df[pred_name].astype(float)]), k=100, ignore_ties=True)
+    ndcg1000 = ndcg_score(y_true=2**np.array([test_df[target].astype(float)])-1,
+                           y_score=np.array([test_df[pred_name].astype(float)]), k=1000, ignore_ties=True)
+    ndcg5000 = ndcg_score(y_true=2**np.array([test_df[target].astype(float)])-1,
+                           y_score=np.array([test_df[pred_name].astype(float)]), k=5000, ignore_ties=True)
     acc_top1 = test_df.nlargest(1, pred_name)[target].mean()
     acc_top1_true = test_df[target].max()
 
@@ -138,7 +144,10 @@ def get_metrics(test_df, pred_name, target='val_accs', show_plot=False, seed=1):
         'kendall': [kendall],
         'spearman': [spearman],
         'pearson': [pearson],
-        'ndcg': [ndcg],
+        'ndcg50': [ndcg50],
+        'ndcg100': [ndcg100],
+        'ndcg1000': [ndcg1000],
+        'ndcg5000': [ndcg5000],
         'acc_top': [acc_top1],
         'acc_top_true': [acc_top1_true],
     }
@@ -162,7 +171,7 @@ def plot_stats(grouped, group, target, pred, fig_name, plot=False):
 
     fig, ax1 = plt.subplots()
 
-    ax1.set_xlabel(group)
+    ax1.set_xlabel('#trainable_layers')
     ax1.set_ylabel('count', color='tab:blue')
     ax1.bar(grouped[group], grouped['count'], color='tab:blue', alpha=0.6, label='count')
     ax1.tick_params(axis='y', labelcolor='tab:blue')
@@ -176,7 +185,7 @@ def plot_stats(grouped, group, target, pred, fig_name, plot=False):
     ax2.set_ylim(-1, 1)
     ax2.axhline(y=0, color='y', linestyle='--', label='corr = 0')
 
-    fig.suptitle(target + ' & ' + pred + ' corr. ' + f'Obs. {total_obs}')
+    fig.suptitle(target + ' & ' + pred + ' corr.')
     fig.legend(loc='upper left', bbox_to_anchor=(0.1, 0.9))
 
     plt.savefig(f'{fig_name}.eps', format='eps')
