@@ -203,6 +203,7 @@ def get_jacobian_index(model, input, param_idx):
 """
 
 def get_jacobian_index(model, input, p, params_grad_len):
+
     model.zero_grad()
 
     if p >= 0:
