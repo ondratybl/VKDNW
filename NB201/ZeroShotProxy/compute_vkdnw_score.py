@@ -122,11 +122,11 @@ def init_model(model, method='kaiming_norm_fanin'):
         raise NotImplementedError
     return model
 
-def get_fisher(model, input, use_logits=True, params_grad_len=256):
+def get_fisher(model, input, use_logits=True, params_grad_len=256, p=0.):
 
     model.eval()
 
-    jacobian = get_jacobian_index(model, input, 0, params_grad_len)
+    jacobian = get_jacobian_index(model, input, p, params_grad_len)
     if not use_logits:
         jacobian = torch.matmul(cholesky_covariance(model(input)[1]), jacobian).detach()
 
@@ -202,10 +202,17 @@ def get_jacobian_index(model, input, param_idx):
     return ret.detach()
 """
 
-def get_jacobian_index(model, input, param_idx, params_grad_len):
+def get_jacobian_index(model, input, p, params_grad_len):
     model.zero_grad()
 
-    params_grad = {k: v.flatten()[param_idx:param_idx+1].detach() for k, v in model.named_parameters()}
+    if p > 0:
+        indices = [int(p * (len(v.flatten()) - 1)) for _, v in model.named_parameters()]
+    else:
+        import random
+        random.seed(12)
+        indices = [random.randint(0, len(v.flatten()) - 1) for _, v in model.named_parameters()]
+
+    params_grad = {k: v.flatten()[param_idx:param_idx+1].detach() for param_idx, (k, v) in zip(indices, model.named_parameters())}
     buffers = {k: v.detach() for k, v in model.named_buffers()}
 
     if params_grad_len > 0:
@@ -216,7 +223,7 @@ def get_jacobian_index(model, input, param_idx, params_grad_len):
     def jacobian_sample(sample):
         def compute_prediction(params_grad_tmp):
             params = {k: v.detach() for k, v in model.named_parameters()}
-            for k, v in params_grad_tmp.items():
+            for param_idx, (k, v) in zip(indices, params_grad_tmp.items()):
                 param_shape = params[k].shape
                 param = params[k].flatten()
                 param[param_idx:param_idx+1] = v
@@ -233,7 +240,7 @@ def get_jacobian_index(model, input, param_idx, params_grad_len):
     return ret.detach()
 
 
-def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_method='kaiming_norm_fanin', fp16=False, params_grad_len=128):
+def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_method='kaiming_norm_fanin', fp16=False, params_grad_len=128, p=0.):
     model.train()
     model.cuda()
     info = {}
@@ -254,7 +261,7 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
     else:
         input_ = next(iter(trainloader))[0].to(device)
 
-    fisher_prob = get_fisher(model, input_, use_logits=False, params_grad_len=params_grad_len)
+    fisher_prob = get_fisher(model, input_, use_logits=False, params_grad_len=params_grad_len, p=p)
 
     try:
         lambdas = torch.svd(fisher_prob).S.detach()

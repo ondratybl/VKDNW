@@ -60,6 +60,7 @@ parser.add_argument('--real_input', default=False, action='store_true')
 parser.add_argument('--batch_size', type=int, default=64, help="Batch size.")
 parser.add_argument('--params_grad_len', type=int, default=128, help="Number of layers to consider.")
 parser.add_argument('--zero_shot_score', type=str, default=None, choices=[None, 'vkdnw', 'az_nas', 'jacov', 'gradsign', 'zico', 'zen', 'gradnorm', 'naswot', 'synflow', 'snip', 'grasp', 'te_nas'])
+parser.add_argument('--p', type=float, default=0., help="Index relative to tensor size for vkdnw.")
 
 
 def random_genotype(max_nodes, op_names):
@@ -125,7 +126,7 @@ def zero_shot_compute(xargs, data_loader, zero_shot_score_list=[], real_input_me
             if zero_shot_score == 'vkdnw':
                 info_dict.update(score_fn.compute_nas_score(
                     network, gpu=xargs.gpu, trainloader=train_loader, resolution=xargs.resolution,
-                    batch_size=xargs.batch_size, params_grad_len=xargs.params_grad_len,
+                    batch_size=xargs.batch_size, params_grad_len=xargs.params_grad_len, p=xargs.p
                 ))
             else:
                 info_dict.update(score_fn.compute_nas_score(
