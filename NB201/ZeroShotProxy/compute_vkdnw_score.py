@@ -205,7 +205,7 @@ def get_jacobian_index(model, input, param_idx):
 def get_jacobian_index(model, input, p, params_grad_len):
     model.zero_grad()
 
-    if p > 0:
+    if p >= 0:
         indices = [int(p * (len(v.flatten()) - 1)) for _, v in model.named_parameters()]
     else:
         import random
