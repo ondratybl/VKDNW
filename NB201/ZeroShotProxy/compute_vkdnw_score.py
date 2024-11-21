@@ -207,7 +207,7 @@ def get_jacobian_index(model, input, p_count, params_grad_len):
     model.zero_grad()
 
     indices = [
-        torch.linspace(0, len(v.flatten()) - 1, steps=p_count).long().to(v.device).tolist()
+        torch.linspace(0, len(v.flatten()) - 1, steps=int(p_count)).long().to(v.device).tolist()
         for _, v in model.named_parameters()
     ]
 
