@@ -202,18 +202,19 @@ def get_jacobian_index(model, input, param_idx):
     return ret.detach()
 """
 
-def get_jacobian_index(model, input, p, params_grad_len):
+def get_jacobian_index(model, input, p_count, params_grad_len):
 
     model.zero_grad()
 
-    if p >= 0:
-        indices = [int(p * (len(v.flatten()) - 1)) for _, v in model.named_parameters()]
-    else:
-        import random
-        random.seed(12)
-        indices = [random.randint(0, len(v.flatten()) - 1) for _, v in model.named_parameters()]
+    indices = [
+        torch.linspace(0, len(v.flatten()) - 1, steps=p_count).long().to(v.device).tolist()
+        for _, v in model.named_parameters()
+    ]
 
-    params_grad = {k: v.flatten()[param_idx:param_idx+1].detach() for param_idx, (k, v) in zip(indices, model.named_parameters())}
+    params_grad = {
+        k: v.flatten()[param_idx].detach()
+        for param_idx, (k, v) in zip(indices, model.named_parameters())
+    }
     buffers = {k: v.detach() for k, v in model.named_buffers()}
 
     if params_grad_len > 0:
@@ -227,7 +228,7 @@ def get_jacobian_index(model, input, p, params_grad_len):
             for param_idx, (k, v) in zip(indices, params_grad_tmp.items()):
                 param_shape = params[k].shape
                 param = params[k].flatten()
-                param[param_idx:param_idx+1] = v
+                param[param_idx] = v
                 params[k] = param.reshape(param_shape)
 
             return functional_call(model, (params, buffers), (sample.unsqueeze(0),))[1].squeeze(0)
