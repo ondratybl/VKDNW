@@ -325,7 +325,7 @@ def main(args, argv):
             popu_zero_shot_score_dict[k].append(v)
 
         popu_zero_shot_score_list = None
-        for key in ['complexity', 'expressivity', 'vkdnw']:
+        for key in ['complexity', 'expressivity', 'trainability', 'progressivity']:
 
             l = len(popu_zero_shot_score_dict[key])
             _rank = stats.rankdata(popu_zero_shot_score_dict[key])
