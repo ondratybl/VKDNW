@@ -324,7 +324,6 @@ def main(args, argv):
                 popu_zero_shot_score_dict[k] = []
         for k, v in the_nas_core.items():
             popu_zero_shot_score_dict[k].append(v)
-        popu_zero_shot_score_dict['vkdnw'] = popu_zero_shot_score_dict['vkdnw_dim']+popu_zero_shot_score_dict['vkdnw_entropy']
 
         popu_zero_shot_score_list = None
         for key in ['complexity', 'expressivity', 'vkdnw']:
