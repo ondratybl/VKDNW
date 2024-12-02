@@ -246,12 +246,11 @@ def main(args, argv):
             top_indices = np.argsort(popu_zero_shot_score_list)[-args.population_size+1:]
 
             # Create a probability distribution with nonzero probabilities for top indices
-            probabilities = np.zeros_like(popu_zero_shot_score_list, dtype=float)
-            probabilities[top_indices] = popu_zero_shot_score_list[top_indices]
-            probabilities /= np.sum(probabilities)  # Normalize to sum to 1
+            probabilities = np.log(stats.rankdata([popu_zero_shot_score_list[i] for i in top_indices]))
+            probabilities /= probabilities.sum()
 
             # Randomly choose indices based on adjusted probabilities
-            tmp_idx = np.random.choice(np.arange(len(popu_zero_shot_score_list)), p=probabilities)
+            tmp_idx = np.random.choice(np.arange(len(popu_zero_shot_score_list))[top_indices], p=probabilities)
             tmp_random_structure_str = popu_structure_list[tmp_idx]
             random_structure_str = get_new_random_structure_str(
                 AnyPlainNet=AnyPlainNet, structure_str=tmp_random_structure_str, num_classes=args.num_classes,
