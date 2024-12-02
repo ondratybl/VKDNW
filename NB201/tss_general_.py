@@ -218,7 +218,7 @@ if __name__ == '__main__':
     if xargs.zero_shot_score:
         zero_shot_score_list = [xargs.zero_shot_score]
     else:
-        zero_shot_score_list = ['vkdnw', 'az_nas', 'jacov']#, 'gradsign', 'zico', 'zen', 'gradnorm', 'naswot', 'synflow', 'snip', 'grasp', 'te_nas']
+        zero_shot_score_list = ['vkdnw', 'az_nas', 'jacov', 'gradsign', 'zico', 'zen', 'gradnorm', 'naswot', 'synflow', 'snip', 'grasp', 'te_nas']
     if xargs.real_input:
         real_input_metrics = zero_shot_score_list
     else:
