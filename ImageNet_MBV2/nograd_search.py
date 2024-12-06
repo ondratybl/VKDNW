@@ -11,19 +11,15 @@ sys.path.append("../../apex/")
 
 import argparse, random, logging, time
 import torch
-from torch import nn
 import numpy as np
 import global_utils
 import Masternet
-import PlainNet
-from xautodl import datasets
 import time
 import wandb
 
-from ZeroShotProxy import compute_vkdnw_score
-import benchmark_network_latency
+from ZeroShotProxy.compute_vkdnw_score import compute_nas_score as compute_nas
 
-import scipy.stats as stats
+import nevergrad as ng
 
 working_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -41,7 +37,7 @@ def parse_cmd_options(argv):
                         help='budget of flops, e.g. , 1.8e6 means 1.8 GFLOPS')
     parser.add_argument('--budget_latency', type=float, default=None,
                         help='latency of forward inference per mini-batch, e.g., 1e-3 means 1ms.')
-    parser.add_argument('--max_layers', type=int, default=14, help='max number of layers of the network.')
+    parser.add_argument('--max_layers', type=int, default=18, help='max number of layers of the network.')
     parser.add_argument('--batch_size', type=int, default=32, help='number of instances in one mini-batch.')
     parser.add_argument('--input_image_size', type=int, default=224,
                         help='resolution of input image, usually 32 for CIFAR and 224 for ImageNet.')
@@ -65,52 +61,11 @@ def parse_cmd_options(argv):
     parser.add_argument('--wandb_project', default='VKDNW')
     parser.add_argument('--wandb_name', default='VKDNW_NOGRAD')
     parser.add_argument('--init_net', default=None, type=str, help='init net string')
+    parser.add_argument('--opt_budget', default=20, type=int, help='budget of optimization')
+    parser.add_argument('--opt_optimizer', default='PortfolioDiscreteOnePlusOne', type=str, help='optimizer', choices=['NGOpt', 'NgIohTuned', 'TwoPointsDE', 'PortfolioDiscreteOnePlusOne', 'CMA', 'RandomSearch'])
 
     module_opt, _ = parser.parse_known_args(argv)
     return module_opt
-
-
-
-def get_new_random_structure_str(AnyPlainNet, structure_str, num_classes, get_search_space_func,
-                                 num_replaces=1):
-    the_net = AnyPlainNet(num_classes=num_classes, plainnet_struct=structure_str, no_create=True)
-    assert isinstance(the_net, PlainNet.PlainNet)
-    selected_random_id_set = set()
-    for replace_count in range(num_replaces):
-        random_id = random.randint(0, len(the_net.block_list) - 1)
-        if random_id in selected_random_id_set:
-            continue
-        selected_random_id_set.add(random_id)
-        to_search_student_blocks_list_list = get_search_space_func(the_net.block_list, random_id)
-
-        to_search_student_blocks_list = [x for sublist in to_search_student_blocks_list_list for x in sublist]
-        to_search_student_blocks_list = sorted(
-            to_search_student_blocks_list)  # we add the sort function for reproducibility, due to the randomness of importlib in global_utils.py
-        new_student_block_str = random.choice(to_search_student_blocks_list)
-
-        if len(new_student_block_str) > 0:
-            new_student_block = PlainNet.create_netblock_list_from_str(new_student_block_str, no_create=True)
-            assert len(new_student_block) == 1
-            new_student_block = new_student_block[0]
-            if random_id > 0:
-                last_block_out_channels = the_net.block_list[random_id - 1].out_channels
-                new_student_block.set_in_channels(last_block_out_channels)
-            the_net.block_list[random_id] = new_student_block
-        else:
-            # replace with empty block
-            the_net.block_list[random_id] = None
-    pass  # end for
-
-    # adjust channels and remove empty layer
-    tmp_new_block_list = [x for x in the_net.block_list if x is not None]
-    last_channels = the_net.block_list[0].out_channels
-    for block in tmp_new_block_list[1:]:
-        block.set_in_channels(last_channels)
-        last_channels = block.out_channels
-    the_net.block_list = tmp_new_block_list
-
-    new_random_structure_str = the_net.split(split_layer_threshold=6)
-    return new_random_structure_str
 
 
 def get_splitted_structure_str(AnyPlainNet, structure_str, num_classes):
@@ -118,20 +73,6 @@ def get_splitted_structure_str(AnyPlainNet, structure_str, num_classes):
     assert hasattr(the_net, 'split')
     splitted_net_str = the_net.split(split_layer_threshold=6)
     return splitted_net_str
-
-
-def get_latency(AnyPlainNet, random_structure_str, gpu, args):
-    the_model = AnyPlainNet(num_classes=args.num_classes, plainnet_struct=random_structure_str,
-                            no_create=False, no_reslink=False)
-    if gpu is not None:
-        the_model = the_model.cuda(gpu)
-    the_latency = benchmark_network_latency.get_model_latency(model=the_model, batch_size=args.batch_size,
-                                                              resolution=args.input_image_size,
-                                                              in_channels=3, gpu=gpu, repeat_times=1,
-                                                              fp16=True)
-    del the_model
-    torch.cuda.empty_cache()
-    return the_latency
 
 
 def compute_nas_score(AnyPlainNet, random_structure_str, gpu, args):
@@ -149,6 +90,53 @@ def compute_nas_score(AnyPlainNet, random_structure_str, gpu, args):
     return info
 
 
+def create_net_str(conv_out, conv_stride, final_out, split_layer_threshold, res_blocks):
+    """
+    res_blocks: A list of dictionaries where each dictionary contains the parameters
+                for a single residual block: {'e': expansion, 'k': kernel_size, 'ch_out': output_channels / 8,
+                's': stride, 'b': bottleneck_channels / 8, 'l': num_layers}.
+    """
+    net_str = f'SuperConvK3BNRELU(3,{8 * conv_out},{conv_stride},1)'
+
+    for i, (_, block) in enumerate(res_blocks.items()):
+        if i == 0:
+            net_str += f"SuperResIDWE{block['e']}K{block['k']}({8 * conv_out},{8 * block['ch_out']},{block['s']},{8 * block['b']},{block['l']})"
+        else:
+            net_str += f"SuperResIDWE{block['e']}K{block['k']}({8 * ch_out_previous},{8 * block['ch_out']},{block['s']},{8 * block['b']},{block['l']})"
+        ch_out_previous = block['ch_out']
+
+    net_str += f'SuperConvK1BNRELU({8 * ch_out_previous},{8*final_out},1,1)'
+
+    net = Masternet.MasterNet(num_classes=10, plainnet_struct=net_str, no_create=True, no_reslink=False)
+    assert hasattr(net, 'split')
+    return net.split(split_layer_threshold=split_layer_threshold)
+
+
+def loss(conv_out, conv_stride, final_out, split_layer_threshold, res_blocks):
+
+    net_str = create_net_str(conv_out, conv_stride, final_out, split_layer_threshold, res_blocks)
+
+    # Net characteristics
+    wandb_log = {}
+    net = Masternet.MasterNet(num_classes=1000, plainnet_struct=net_str, no_create=True, no_reslink=False)
+    wandb_log['net_str'] = net_str
+    wandb_log['flops'] = net.get_FLOPs(224)
+    wandb_log['model_size'] = net.get_model_size()
+    wandb_log['num_layers'] = net.get_num_layers()
+
+    # Score
+    net = Masternet.MasterNet(num_classes=10, plainnet_struct=net_str, no_create=False, no_reslink=False)
+    net = net.cuda(0)
+
+    score = compute_nas(model=net, gpu=0, trainloader=None, resolution=32, batch_size=16)['vkdnw']
+    del net
+    torch.cuda.empty_cache()
+
+    wandb_log['score'] = score
+    wandb.log(wandb_log)
+
+    return -score
+
 def main(args):
     gpu = args.gpu
     if gpu is not None:
@@ -157,86 +145,98 @@ def main(args):
         # torch.backends.cudnn.benchmark = True
     print(args)
 
-    # load search space config .py file
-    select_search_space = global_utils.load_py_module_from_path(args.search_space)
+    instrum = ng.p.Instrumentation(
+        ng.p.Scalar(init=6, lower=3, upper=18).set_integer_casting(),  # conv_out
+        ng.p.Choice([1, 2]),  # conv_stride
+        ng.p.Scalar(init=256, lower=32, upper=512).set_integer_casting(),  # final_out
+        ng.p.Scalar(init=6, lower=3, upper=8).set_integer_casting(),  # split_layer_threshold
+        res_blocks=ng.p.Dict(
+            res_block1=ng.p.Dict(
+                e=ng.p.TransitionChoice([1, 2, 4, 6]),
+                k=ng.p.TransitionChoice([3, 5, 7]),
+                ch_out=ng.p.Scalar(init=6, lower=3, upper=128).set_integer_casting(),
+                s=ng.p.Choice([1, 2]),
+                b=ng.p.Scalar(init=6, lower=3, upper=128).set_integer_casting(),
+                l=ng.p.Scalar(init=1, lower=1, upper=8).set_integer_casting(),
+            ),
+            res_block2=ng.p.Dict(
+                e=ng.p.TransitionChoice([1, 2, 4, 6]),
+                k=ng.p.TransitionChoice([3, 5, 7]),
+                ch_out=ng.p.Scalar(init=6, lower=3, upper=128).set_integer_casting(),
+                s=ng.p.Choice([1, 2]),
+                b=ng.p.Scalar(init=6, lower=3, upper=128).set_integer_casting(),
+                l=ng.p.Scalar(init=1, lower=1, upper=8).set_integer_casting(),
+            ),
+            res_block3=ng.p.Dict(
+                e=ng.p.TransitionChoice([1, 2, 4, 6]),
+                k=ng.p.TransitionChoice([3, 5, 7]),
+                ch_out=ng.p.Scalar(init=6, lower=3, upper=128).set_integer_casting(),
+                s=ng.p.Choice([1, 2]),
+                b=ng.p.Scalar(init=6, lower=3, upper=128).set_integer_casting(),
+                l=ng.p.Scalar(init=3, lower=1, upper=8).set_integer_casting(),
+            ),
+            res_block4=ng.p.Dict(
+                e=ng.p.TransitionChoice([1, 2, 4, 6]),
+                k=ng.p.TransitionChoice([3, 5, 7]),
+                ch_out=ng.p.Scalar(init=6, lower=3, upper=128).set_integer_casting(),
+                s=ng.p.Choice([1, 2]),
+                b=ng.p.Scalar(init=6, lower=3, upper=128).set_integer_casting(),
+                l=ng.p.Scalar(init=4, lower=1, upper=8).set_integer_casting(),
+            ),
+            res_block5=ng.p.Dict(
+                e=ng.p.TransitionChoice([1, 2, 4, 6]),
+                k=ng.p.TransitionChoice([3, 5, 7]),
+                ch_out=ng.p.Scalar(init=6, lower=3, upper=256).set_integer_casting(),
+                s=ng.p.Choice([1, 2]),
+                b=ng.p.Scalar(init=6, lower=3, upper=128).set_integer_casting(),
+                l=ng.p.Scalar(init=5, lower=1, upper=8).set_integer_casting(),
+            ),
+        )
+    )
+    optimizer = getattr(ng.optimizers, args.opt_optimizer)(parametrization=instrum, budget=args.opt_budget)
 
-    # load masternet
-    AnyPlainNet = Masternet.MasterNet
-    initial_structure_str = args.init_net
+    def constraint_size(val):
+        conv_out, conv_stride, final_out, split_layer_threshold = val[0]
+        res_blocks = val[1]['res_blocks']
 
-    start_timer = time.time()
-    lossfunc = nn.CrossEntropyLoss().cuda()
-    loop_count = 0
-    torch.cuda.reset_peak_memory_stats()
-    while loop_count < args.evolution_max_iter:
-        # ----- generate a random structure ----- #
-        if len(popu_structure_list) <= 10:
-            random_structure_str = get_new_random_structure_str(
-                AnyPlainNet=AnyPlainNet, structure_str=initial_structure_str, num_classes=args.num_classes,
-                get_search_space_func=select_search_space.gen_search_space, num_replaces=1)
-        elif len(popu_structure_list) < args.population_size - 1:
-            tmp_idx = random.randint(0, len(popu_structure_list) - 1)
-            tmp_random_structure_str = popu_structure_list[tmp_idx]
-            random_structure_str = get_new_random_structure_str(
-                AnyPlainNet=AnyPlainNet, structure_str=tmp_random_structure_str, num_classes=args.num_classes,
-                get_search_space_func=select_search_space.gen_search_space, num_replaces=2)
-        else:
-            tmp_idx = np.random.choice(np.argsort(popu_zero_shot_score_list, axis=0)[-args.population_size + 1:])
-            tmp_random_structure_str = popu_structure_list[tmp_idx]
-            random_structure_str = get_new_random_structure_str(
-                AnyPlainNet=AnyPlainNet, structure_str=tmp_random_structure_str, num_classes=args.num_classes,
-                get_search_space_func=select_search_space.gen_search_space, num_replaces=2)
+        net_str = create_net_str(conv_out, conv_stride, final_out, split_layer_threshold, res_blocks)
+        net = Masternet.MasterNet(num_classes=1000, plainnet_struct=net_str, no_create=True, no_reslink=False)
+        net_flops = net.get_FLOPs(224)
+        net_layers = net.get_num_layers()
+        net_size = net.get_model_size()
 
-        random_structure_str = get_splitted_structure_str(AnyPlainNet, random_structure_str,
-                                                          num_classes=args.num_classes)
+        cond = (net_flops <= args.budget_flops) & (
+                    net_layers <= args.max_layers) & (net_size >= args.budget_model_size)
 
-        the_model = None
+        if not cond:
+            print(f'FLOPs: {net_flops / 1e9:.2f}G.')
+            print(f'Layers: {net_layers}.')
+            print(f'Size: {net_size / 1e6}M.')
 
-        if args.max_layers is not None:
-            if the_model is None:
-                the_model = AnyPlainNet(num_classes=args.num_classes, plainnet_struct=random_structure_str,
-                                        no_create=True, no_reslink=False)
-            the_layers = the_model.get_num_layers()
-            if the_layers > args.max_layers:
-                continue
+        return float(cond) - 0.5  # 0. is considered as plausible so we subtract 0.5
 
-        if args.budget_model_size is not None:
-            if the_model is None:
-                the_model = AnyPlainNet(num_classes=args.num_classes, plainnet_struct=random_structure_str,
-                                        no_create=True, no_reslink=False)
-            the_model_size = the_model.get_model_size()
-            if args.budget_model_size < the_model_size:
-                continue
+    def constraint_stride(val):
+        _, conv_stride, _, _ = val[0]
+        res_blocks = val[1]['res_blocks']
 
-        if args.budget_flops is not None:
-            if the_model is None:
-                the_model = AnyPlainNet(num_classes=args.num_classes, plainnet_struct=random_structure_str,
-                                        no_create=True, no_reslink=False)
-            the_model_flops = the_model.get_FLOPs(args.input_image_size)
-            if args.budget_flops < the_model_flops:
-                continue
+        strides_total = conv_stride - 1
+        for block in res_blocks.values():
+            strides_total += block['s'] - 1
+        return float(5 - strides_total)
 
-        the_latency = np.inf
-        if args.budget_latency is not None:
-            the_latency = get_latency(AnyPlainNet, random_structure_str, gpu, args)
-            if args.budget_latency < the_latency:
-                continue
-
-        the_nas_core = compute_nas_score(AnyPlainNet, random_structure_str, gpu, args)
-
-        wandb_log = the_nas_core.copy()
-        wandb_log['arch'] = random_structure_str
-        wandb_log['flops'] = the_model_flops
-        wandb_log['model_size'] = the_model.get_model_size()
-        wandb_log['num_layers'] = the_model.get_num_layers()
-        wandb.log(wandb_log)
-
+    optimizer.parametrization.register_cheap_constraint(constraint_size)
+    optimizer.parametrization.register_cheap_constraint(constraint_stride)
+    recommendation = optimizer.minimize(loss)
+    print(recommendation.value)
 
 
 if __name__ == '__main__':
     args = parse_cmd_options(sys.argv)
     log_fn = os.path.join(args.save_dir, 'evolution_search.log')
     global_utils.create_logging(log_fn)
+
+    wandb.login(key=args.wandb_key)
+    wandb.init(project=args.wandb_project, config=args, name=args.wandb_name, tags=['nevergrad_search'])
 
     if args.seed is not None:
         logging.info("The seed number is set to {}".format(args.seed))
@@ -249,23 +249,4 @@ if __name__ == '__main__':
         torch.backends.cudnn.benchmark = False
         os.environ["PYTHONHASHSEED"] = str(args.seed)
 
-    wandb.login(key=args.wandb_key)
-    wandb.init(project=args.wandb_project, config=args, name=args.wandb_name, tags=['nograd_search'])
-
-    info = main(args)
-    if info is None:
-        exit()
-
-    popu_structure_list, popu_zero_shot_score_list, popu_latency_list = info
-
-    # export best structure
-    best_score = max(popu_zero_shot_score_list)
-    best_idx = popu_zero_shot_score_list.index(best_score)
-    best_structure_str = popu_structure_list[best_idx]
-    the_latency = popu_latency_list[best_idx]
-
-    best_structure_txt = os.path.join(args.save_dir, 'best_structure.txt')
-    global_utils.mkfilepath(best_structure_txt)
-    with open(best_structure_txt, 'w') as fid:
-        fid.write(best_structure_str)
-    pass  # end with
+    main(args)

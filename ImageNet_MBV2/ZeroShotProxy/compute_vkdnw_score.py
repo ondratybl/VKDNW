@@ -263,6 +263,7 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
     else:
         layer_features, output = model.extract_layer_features_and_logit(input_)
 
+    """
     ################ expressivity & progressivity scores ################
     expressivity_scores = []
     for i in range(len(layer_features)):
@@ -327,7 +328,7 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
     info['progressivity'] = float(progressivity) if not np.isnan(progressivity) else -np.inf
     info['trainability'] = float(trainability) if not np.isnan(trainability) else -np.inf
     info['complexity'] = float(model.get_FLOPs(resolution))
-
+    """
     fisher_prob = get_fisher(model, input_, use_logits=False)
 
     try:
