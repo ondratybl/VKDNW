@@ -52,7 +52,7 @@ def parse_cmd_options(argv):
                         help='type of dataset')
     parser.add_argument('--datapath', type=str, default='../NB201/cifar.python/ImageNet16',
                         help='root of path')
-    parser.add_argument('--num_worker', type=int, default=40,
+    parser.add_argument('--num_worker', type=int, default=1,
                         help='root of path')
     parser.add_argument('--maxbatch', type=int, default=2,
                         help='root of path')
@@ -193,7 +193,7 @@ def main(args):
             ),
         )
     )
-    optimizer = getattr(ng.optimizers, args.opt_optimizer)(parametrization=instrum, budget=args.opt_budget)
+    optimizer = getattr(ng.optimizers, args.opt_optimizer)(parametrization=instrum, budget=args.opt_budget, num_workers=args.num_workers)
 
     def constraint_size(val):
         conv_out, conv_stride, final_out, split_layer_threshold = val[0]
@@ -226,7 +226,14 @@ def main(args):
 
     optimizer.parametrization.register_cheap_constraint(constraint_size)
     optimizer.parametrization.register_cheap_constraint(constraint_stride)
-    recommendation = optimizer.minimize(loss)
+
+    if args.num_workers == 1:
+        recommendation = optimizer.minimize(loss)
+    else:
+        from concurrent import futures
+        with futures.ThreadPoolExecutor(max_workers=optimizer.num_workers) as executor:
+            # with futures.ProcessPoolExecutor(max_workers=optimizer.num_workers) as executor:
+            recommendation = optimizer.minimize(loss, executor=executor, batch_mode=False)
     print(recommendation.value)
 
 
