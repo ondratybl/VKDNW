@@ -193,7 +193,7 @@ def main(args):
             ),
         )
     )
-    optimizer = getattr(ng.optimizers, args.opt_optimizer)(parametrization=instrum, budget=args.opt_budget, num_workers=args.num_workers)
+    optimizer = getattr(ng.optimizers, args.opt_optimizer)(parametrization=instrum, budget=args.opt_budget, num_workers=args.num_worker)
 
     def constraint_size(val):
         conv_out, conv_stride, final_out, split_layer_threshold = val[0]
@@ -227,7 +227,7 @@ def main(args):
     optimizer.parametrization.register_cheap_constraint(constraint_size)
     optimizer.parametrization.register_cheap_constraint(constraint_stride)
 
-    if args.num_workers == 1:
+    if args.num_worker == 1:
         recommendation = optimizer.minimize(loss)
     else:
         from concurrent import futures
