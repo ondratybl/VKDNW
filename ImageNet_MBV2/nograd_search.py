@@ -138,6 +138,9 @@ def loss(conv_out, conv_stride, final_out, split_layer_threshold, res_blocks):
     return -score
 
 def main(args):
+    import torch.multiprocessing as mp
+    mp.set_start_method('spawn')  # Use 'spawn' method for multiprocessing
+
     gpu = args.gpu
     if gpu is not None:
         print(torch.cuda.device_count())
