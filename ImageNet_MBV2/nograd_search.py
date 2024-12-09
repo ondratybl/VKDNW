@@ -231,8 +231,8 @@ def main(args):
         recommendation = optimizer.minimize(loss)
     else:
         from concurrent import futures
-        with futures.ThreadPoolExecutor(max_workers=optimizer.num_workers) as executor:
-            # with futures.ProcessPoolExecutor(max_workers=optimizer.num_workers) as executor:
+        #with futures.ThreadPoolExecutor(max_workers=optimizer.num_workers) as executor:
+        with futures.ProcessPoolExecutor(max_workers=optimizer.num_workers) as executor:
             recommendation = optimizer.minimize(loss, executor=executor, batch_mode=False)
     print(recommendation.value)
 

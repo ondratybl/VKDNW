@@ -258,12 +258,12 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
     else:
         input_ = input_.clone()
 
+    """
     if model.no_reslink:
         layer_features = model.extract_layer_features_nores(input_)
     else:
         layer_features, output = model.extract_layer_features_and_logit(input_)
 
-    """
     ################ expressivity & progressivity scores ################
     expressivity_scores = []
     for i in range(len(layer_features)):
