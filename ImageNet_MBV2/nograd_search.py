@@ -96,16 +96,16 @@ def create_net_str(conv_out, conv_stride, final_out, split_layer_threshold, res_
                 for a single residual block: {'e': expansion, 'k': kernel_size, 'ch_out': output_channels / 8,
                 's': stride, 'b': bottleneck_channels / 8, 'l': num_layers}.
     """
-    net_str = f'SuperConvK3BNRELU(3,{8 * conv_out},{conv_stride},1)'
+    net_str = f'SuperConvK3BNRELU(3,{conv_out},{conv_stride},1)'
 
     for i, (_, block) in enumerate(res_blocks.items()):
         if i == 0:
-            net_str += f"SuperResIDWE{block['e']}K{block['k']}({8 * conv_out},{8 * block['ch_out']},{block['s']},{8 * block['b']},{block['l']})"
+            net_str += f"SuperResIDWE{block['e']}K{block['k']}({conv_out},{block['ch_out']},{block['s']},{block['b']},{block['l']})"
         else:
-            net_str += f"SuperResIDWE{block['e']}K{block['k']}({8 * ch_out_previous},{8 * block['ch_out']},{block['s']},{8 * block['b']},{block['l']})"
+            net_str += f"SuperResIDWE{block['e']}K{block['k']}({ch_out_previous},{block['ch_out']},{block['s']},{block['b']},{block['l']})"
         ch_out_previous = block['ch_out']
 
-    net_str += f'SuperConvK1BNRELU({8 * ch_out_previous},{8*final_out},1,1)'
+    net_str += f'SuperConvK1BNRELU({ch_out_previous},{final_out},1,1)'
 
     net = Masternet.MasterNet(num_classes=10, plainnet_struct=net_str, no_create=True, no_reslink=False)
     assert hasattr(net, 'split')
@@ -149,49 +149,49 @@ def main(args):
     print(args)
 
     instrum = ng.p.Instrumentation(
-        ng.p.Scalar(init=6, lower=3, upper=18).set_integer_casting(),  # conv_out
+        ng.p.Scalar(init=48, lower=24, upper=144).set_integer_casting(),  # conv_out
         ng.p.Choice([1, 2]),  # conv_stride
-        ng.p.Scalar(init=256, lower=32, upper=512).set_integer_casting(),  # final_out
+        ng.p.Scalar(init=2048, lower=512, upper=4096).set_integer_casting(),  # final_out
         ng.p.Scalar(init=6, lower=3, upper=8).set_integer_casting(),  # split_layer_threshold
         res_blocks=ng.p.Dict(
             res_block1=ng.p.Dict(
                 e=ng.p.TransitionChoice([1, 2, 4, 6]),
                 k=ng.p.TransitionChoice([3, 5, 7]),
-                ch_out=ng.p.Scalar(init=6, lower=3, upper=128).set_integer_casting(),
+                ch_out=ng.p.Scalar(init=48, lower=24, upper=1024).set_integer_casting(),
                 s=ng.p.Choice([1, 2]),
-                b=ng.p.Scalar(init=6, lower=3, upper=128).set_integer_casting(),
+                b=ng.p.Scalar(init=48, lower=24, upper=1024).set_integer_casting(),
                 l=ng.p.Scalar(init=1, lower=1, upper=8).set_integer_casting(),
             ),
             res_block2=ng.p.Dict(
                 e=ng.p.TransitionChoice([1, 2, 4, 6]),
                 k=ng.p.TransitionChoice([3, 5, 7]),
-                ch_out=ng.p.Scalar(init=6, lower=3, upper=128).set_integer_casting(),
+                ch_out=ng.p.Scalar(init=48, lower=24, upper=1024).set_integer_casting(),
                 s=ng.p.Choice([1, 2]),
-                b=ng.p.Scalar(init=6, lower=3, upper=128).set_integer_casting(),
+                b=ng.p.Scalar(init=48, lower=24, upper=1024).set_integer_casting(),
                 l=ng.p.Scalar(init=1, lower=1, upper=8).set_integer_casting(),
             ),
             res_block3=ng.p.Dict(
                 e=ng.p.TransitionChoice([1, 2, 4, 6]),
                 k=ng.p.TransitionChoice([3, 5, 7]),
-                ch_out=ng.p.Scalar(init=6, lower=3, upper=128).set_integer_casting(),
+                ch_out=ng.p.Scalar(init=48, lower=24, upper=1024).set_integer_casting(),
                 s=ng.p.Choice([1, 2]),
-                b=ng.p.Scalar(init=6, lower=3, upper=128).set_integer_casting(),
+                b=ng.p.Scalar(init=48, lower=24, upper=1024).set_integer_casting(),
                 l=ng.p.Scalar(init=3, lower=1, upper=8).set_integer_casting(),
             ),
             res_block4=ng.p.Dict(
                 e=ng.p.TransitionChoice([1, 2, 4, 6]),
                 k=ng.p.TransitionChoice([3, 5, 7]),
-                ch_out=ng.p.Scalar(init=6, lower=3, upper=128).set_integer_casting(),
+                ch_out=ng.p.Scalar(init=48, lower=24, upper=1024).set_integer_casting(),
                 s=ng.p.Choice([1, 2]),
-                b=ng.p.Scalar(init=6, lower=3, upper=128).set_integer_casting(),
+                b=ng.p.Scalar(init=48, lower=24, upper=1024).set_integer_casting(),
                 l=ng.p.Scalar(init=4, lower=1, upper=8).set_integer_casting(),
             ),
             res_block5=ng.p.Dict(
                 e=ng.p.TransitionChoice([1, 2, 4, 6]),
                 k=ng.p.TransitionChoice([3, 5, 7]),
-                ch_out=ng.p.Scalar(init=6, lower=3, upper=256).set_integer_casting(),
+                ch_out=ng.p.Scalar(init=48, lower=24, upper=2048).set_integer_casting(),
                 s=ng.p.Choice([1, 2]),
-                b=ng.p.Scalar(init=6, lower=3, upper=128).set_integer_casting(),
+                b=ng.p.Scalar(init=48, lower=24, upper=2048).set_integer_casting(),
                 l=ng.p.Scalar(init=5, lower=1, upper=8).set_integer_casting(),
             ),
         )
