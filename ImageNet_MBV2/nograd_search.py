@@ -216,6 +216,9 @@ def main(args):
         if not cond:
             violation_tracker["size_violations"] += 1
 
+            if violation_tracker["violations"] % 100 == 0:
+                print(f"Constraint violations reached {violation_tracker['violations']}!")
+
         return float(cond) - 0.5  # 0. is considered as plausible so we subtract 0.5
 
     def constraint_stride(val):
