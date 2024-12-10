@@ -16,6 +16,7 @@ import global_utils
 import Masternet
 import time
 import wandb
+from collections import Counter
 
 from ZeroShotProxy.compute_vkdnw_score import compute_nas_score as compute_nas
 
@@ -197,6 +198,7 @@ def main(args):
         )
     )
     optimizer = getattr(ng.optimizers, args.opt_optimizer)(parametrization=instrum, budget=args.opt_budget, num_workers=args.num_worker)
+    violation_tracker = Counter()
 
     def constraint_size(val):
         conv_out, conv_stride, final_out, split_layer_threshold = val[0]
@@ -212,9 +214,7 @@ def main(args):
                     net_layers <= args.max_layers) & (net_size >= args.budget_model_size)
 
         if not cond:
-            print(f'FLOPs: {net_flops / 1e9:.2f}G.')
-            print(f'Layers: {net_layers}.')
-            print(f'Size: {net_size / 1e6}M.')
+            violation_tracker["size_violations"] += 1
 
         return float(cond) - 0.5  # 0. is considered as plausible so we subtract 0.5
 
@@ -238,6 +238,8 @@ def main(args):
         with futures.ProcessPoolExecutor(max_workers=optimizer.num_workers) as executor:
             recommendation = optimizer.minimize(loss, executor=executor, batch_mode=False)
     print(recommendation.value)
+    print(f'Num. ask: {recommendation.num_ask}')
+    print(f'Num. tell: {recommendation.num_tell}')
 
 
 if __name__ == '__main__':
