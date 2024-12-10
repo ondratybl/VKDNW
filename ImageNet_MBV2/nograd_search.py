@@ -62,7 +62,7 @@ def parse_cmd_options(argv):
     parser.add_argument('--wandb_name', default='VKDNW_NOGRAD')
     parser.add_argument('--init_net', default=None, type=str, help='init net string')
     parser.add_argument('--opt_budget', default=20, type=int, help='budget of optimization')
-    parser.add_argument('--opt_optimizer', default='PortfolioDiscreteOnePlusOne', type=str, help='optimizer', choices=['NGOpt', 'NgIohTuned', 'TwoPointsDE', 'PortfolioDiscreteOnePlusOne', 'CMA', 'RandomSearch'])
+    parser.add_argument('--opt_optimizer', default='PortfolioDiscreteOnePlusOne', type=str, help='optimizer', choices=['NGOpt', 'NgIohTuned', 'TwoPointsDE', 'PortfolioDiscreteOnePlusOne', 'CMA', 'RandomSearch', 'BayesOptim'])
 
     module_opt, _ = parser.parse_known_args(argv)
     return module_opt
