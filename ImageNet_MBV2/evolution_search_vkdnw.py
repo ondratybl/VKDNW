@@ -188,6 +188,17 @@ def getmisc(args):
     return trainloader, testloader, xshape, class_num
 
 
+def get_flops_distribution(net, resolution):
+
+    flops_distribution = []
+    for block in net.block_list:
+        flops_distribution.append(block.get_FLOPs(resolution))
+        resolution = block.get_output_resolution(resolution)
+
+    flops_total = sum(flops_distribution)
+    return [flops / flops_total for flops in flops_distribution]
+
+
 def main(args, argv):
     gpu = args.gpu
     if gpu is not None:
@@ -315,6 +326,7 @@ def main(args, argv):
         wandb_log['flops'] = the_model_flops
         wandb_log['model_size'] = the_model.get_model_size()
         wandb_log['num_layers'] = the_model.get_num_layers()
+        wandb_log['flops_distribution'] = get_flops_distribution(the_model, 224)
         wandb.log(wandb_log)
 
         if popu_zero_shot_score_dict is None: # initialize dict
