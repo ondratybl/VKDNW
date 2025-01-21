@@ -5,7 +5,6 @@ Copyright (C) 2010-2021 Alibaba Group Holding Limited.
 
 import os, sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append("../../apex/")
 
 import argparse, random, logging, time
 import torch

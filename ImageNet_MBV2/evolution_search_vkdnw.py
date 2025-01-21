@@ -77,7 +77,7 @@ def parse_cmd_options(argv):
     parser.add_argument('--rand_input', type=str2bool, default=True, help='random input')
     parser.add_argument('--search_no_res', type=str2bool, default=False, help='remove residual link in search phase')
     parser.add_argument('--seed', type=none_or_int, default=123)
-    parser.add_argument('--wandb_key', default=None, type=str)
+    parser.add_argument('--wandb_key', default='109a132addff7ecca7b2a99e1126515e5fa66377')
     parser.add_argument('--wandb_project', default='VKDNW')
     parser.add_argument('--wandb_name', default='VKDNW_EVOLUTION')
     parser.add_argument('--init_net', default=None, type=str, help='init net string')
@@ -188,17 +188,6 @@ def getmisc(args):
     return trainloader, testloader, xshape, class_num
 
 
-def get_flops_distribution(net, resolution):
-
-    flops_distribution = []
-    for block in net.block_list:
-        flops_distribution.append(block.get_FLOPs(resolution))
-        resolution = block.get_output_resolution(resolution)
-
-    flops_total = sum(flops_distribution)
-    return [flops / flops_total for flops in flops_distribution]
-
-
 def main(args, argv):
     gpu = args.gpu
     if gpu is not None:
@@ -242,7 +231,7 @@ def main(args, argv):
     torch.cuda.reset_peak_memory_stats()
     while loop_count < args.evolution_max_iter:
         # ----- generate a random structure ----- #
-        if len(popu_structure_list) <= 40:
+        if len(popu_structure_list) <= 10:
             random_structure_str = get_new_random_structure_str(
                 AnyPlainNet=AnyPlainNet, structure_str=initial_structure_str, num_classes=args.num_classes,
                 get_search_space_func=select_search_space.gen_search_space, num_replaces=1)
@@ -253,15 +242,7 @@ def main(args, argv):
                 AnyPlainNet=AnyPlainNet, structure_str=tmp_random_structure_str, num_classes=args.num_classes,
                 get_search_space_func=select_search_space.gen_search_space, num_replaces=2)
         else:
-            # Find the indices of the top `population_size` scores
-            top_indices = np.argsort(popu_zero_shot_score_list)[-args.population_size+1:]
-
-            # Create a probability distribution with nonzero probabilities for top indices
-            probabilities = np.log(stats.rankdata([popu_zero_shot_score_list[i] for i in top_indices]))
-            probabilities /= probabilities.sum()
-
-            # Randomly choose indices based on adjusted probabilities
-            tmp_idx = np.random.choice(np.arange(len(popu_zero_shot_score_list))[top_indices], p=probabilities)
+            tmp_idx = np.random.choice(np.argsort(popu_zero_shot_score_list, axis=0)[-args.population_size+1:])
             tmp_random_structure_str = popu_structure_list[tmp_idx]
             random_structure_str = get_new_random_structure_str(
                 AnyPlainNet=AnyPlainNet, structure_str=tmp_random_structure_str, num_classes=args.num_classes,
@@ -326,7 +307,6 @@ def main(args, argv):
         wandb_log['flops'] = the_model_flops
         wandb_log['model_size'] = the_model.get_model_size()
         wandb_log['num_layers'] = the_model.get_num_layers()
-        wandb_log['flops_distribution'] = get_flops_distribution(the_model, 224)
         wandb.log(wandb_log)
 
         if popu_zero_shot_score_dict is None: # initialize dict
@@ -336,8 +316,12 @@ def main(args, argv):
         for k, v in the_nas_core.items():
             popu_zero_shot_score_dict[k].append(v)
 
+        #temp = pd.DataFrame(popu_zero_shot_score_dict)
+        #temp['vkdnw_ratio'] = -(temp['vkdnw_lambda_8']/temp['vkdnw_lambda_3']).apply(np.log)
+        #popu_zero_shot_score_dict['vkdnw_progressivity'] = list(temp[['vkdnw_dim', 'vkdnw_ratio']].apply(tuple, axis=1).rank(method='dense', ascending=True).values)
+
         popu_zero_shot_score_list = None
-        for key in ['complexity', 'expressivity', 'vkdnw']:
+        for key in ['complexity', 'expressivity', 'progressivity', 'vkdnw_entropy', 'trainability']:
 
             l = len(popu_zero_shot_score_dict[key])
             _rank = stats.rankdata(popu_zero_shot_score_dict[key])
@@ -346,11 +330,18 @@ def main(args, argv):
             else:
                 popu_zero_shot_score_list = np.log(_rank/l)
 
+        #popu_zero_shot_score_dict.pop('vkdnw_progressivity')
         popu_zero_shot_score_list = popu_zero_shot_score_list.tolist()
         popu_structure_list.append(random_structure_str)
         popu_latency_list.append(the_latency)
 
         loop_count += 1
+
+    # #### tmp
+    # arch_dir = os.path.join(args.save_dir, 'arch_list.pth')
+    # with open(arch_dir, "wb") as fp:
+    #     pickle.dump(popu_structure_list, fp)
+    # ####
 
     return popu_structure_list, popu_zero_shot_score_list, popu_latency_list
 

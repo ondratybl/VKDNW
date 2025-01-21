@@ -339,9 +339,22 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
         else:
             raise  # re-raise the exception if it's not the specific RuntimeError you want to catch
 
+    # Dimenson
+    info['vkdnw_dim'] = float(len(list(model.named_parameters())))
+
+    #Chisquare
+    bin_edges = [1]
+    for i in range(18):
+        bin_edges.append(bin_edges[-1] / 10)
+    bin_edges.append(0)
+    bin_edges = bin_edges[::-1]
+
+    f_obs, _ = np.histogram(lambdas.cpu().numpy(), bins=bin_edges)
+    info['vkdnw_chisquare'] = chisquare(f_obs).statistic
+
     # Eigenvectors
-    quantiles = torch.quantile(lambdas, torch.arange(0., 1., 0.1, device=lambdas.device))
+    quantiles = torch.quantile(lambdas, torch.arange(0., 1.1, 0.1, device=lambdas.device))
     temp = quantiles / (torch.linalg.norm(quantiles, ord=1, keepdim=False).item() + 1e-10)
-    vkdnw = float(len(list(model.named_parameters()))) - (temp * torch.log(temp + 1e-10)).sum().cpu().numpy().item()
-    info.update({'vkdnw': vkdnw})
+    info.update({'vkdnw_entropy': -(temp * torch.log(temp + 1e-10)).sum().cpu().numpy().item()})
+    info.update({'vkdnw_lambda_' + str(i): v.item() for (i, v) in enumerate(quantiles)})
     return info

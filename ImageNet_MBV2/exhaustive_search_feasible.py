@@ -16,9 +16,9 @@ def parse_cmd_options(argv):
                         help='.py file to specify the search space.')
     parser.add_argument('--budget_model_size', type=float, default=None,
                         help='budget of model size ( number of parameters), e.g., 1e6 means 1M params')
-    parser.add_argument('--budget_flops', type=float, default=1000e6,
+    parser.add_argument('--budget_flops', type=float, default=450e6,
                         help='budget of flops, e.g. , 1.8e6 means 1.8 GFLOPS')
-    parser.add_argument('--max_layers', type=int, default=19, help='max number of layers of the network.')
+    parser.add_argument('--max_layers', type=int, default=20, help='max number of layers of the network.')
     parser.add_argument('--input_image_size', type=int, default=224,
                         help='resolution of input image, usually 32 for CIFAR and 224 for ImageNet.')
     parser.add_argument('--search_no_res', default=False, action='store_true', help='remove residual link in search phase')
@@ -29,17 +29,6 @@ def parse_cmd_options(argv):
 
     module_opt, _ = parser.parse_known_args(argv)
     return module_opt
-
-
-def get_flops_distribution(net, resolution):
-
-    flops_distribution = []
-    for block in net.block_list:
-        flops_distribution.append(block.get_FLOPs(resolution))
-        resolution = block.get_output_resolution(resolution)
-
-    flops_total = sum(flops_distribution)
-    return [flops / flops_total for flops in flops_distribution]
 
 
 def task(cpu_id, seed, budget_flops, input_image_size, max_layers):
@@ -63,25 +52,25 @@ def task(cpu_id, seed, budget_flops, input_image_size, max_layers):
 
         # propose net
         strides_total = 0
-        net_len = random.choice([5, 6])
-        out_channels = 8 * random.randint(4, 16)
-        stride = random.choice([1, 2])
+        in_channels = 3
+        out_channels = random.randint(8, min(2048, in_channels * 8))
+        stride = random.choice([2])
         if stride == 2:
             strides_total += 1
         net_str = f'SuperConvK3BNRELU(3,{out_channels},{stride},1)'
-        for j in range(net_len):
+        for j in range(5):
             in_channels = out_channels
-            out_channels = random.randint(int(in_channels * 0.9), min(2048, int(in_channels * 2.5)))
-            layer_type = 3  # random.choice([1, 2, 3])
-            kernel_size = random.choice([3, 5, 7])
-            if strides_total > 6:
+            out_channels = random.randint(in_channels, min(2048, in_channels * 4))
+            layer_type = random.choice([1, 2, 3])
+            kernel_size = random.choice([3, 5])
+            if strides_total > 5:
                 stride = 1
             else:
-                stride = random.choice([1, 2])
+                stride = random.choice([2])
                 if stride == 2:
                     strides_total += 1
-            sub_layers = random.choices([1, 2, 3, 5], k=1)[0]
-            bottleneck_channels = random.choice(range(int(in_channels / 2), min(2048, int(out_channels * 2))))
+            sub_layers = random.choices([1, 2, 3, 5], weights=[0.5, 0.3, 0.15, 0.05], k=1)[0]
+            bottleneck_channels = random.choice(range(in_channels, out_channels+1))
             if layer_type == 1:
                 net_str += f'SuperResK{kernel_size}K{kernel_size}({in_channels},{out_channels},{stride},{bottleneck_channels},{sub_layers})'
             elif layer_type == 2:
@@ -96,10 +85,10 @@ def task(cpu_id, seed, budget_flops, input_image_size, max_layers):
             continue
         archs_all.append(net_str)
 
-        net = AnyPlainNet(num_classes=1000, plainnet_struct=net_str, no_create=False, no_reslink=False)
+        net = AnyPlainNet(num_classes=10, plainnet_struct=net_str, no_create=False, no_reslink=False)
         # check the model size
         the_model_flops = net.get_FLOPs(input_image_size)
-        if (the_model_flops < budget_flops*0.8) or (the_model_flops > budget_flops*1.2):
+        if (the_model_flops < budget_flops*0.9) or (the_model_flops > budget_flops*1.1):
             unsucessfull += 1
             continue
         the_model_layers = net.get_num_layers()
