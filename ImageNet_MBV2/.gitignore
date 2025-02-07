@@ -2,3 +2,7 @@ tmp/
 backup/
 save_dir/
 save_dir2/
+
+exhaustive_search_feasible.py
+exhaustive_search_vkdnw.py.py
+exhaustive_search_vkdnw_evaluate.py

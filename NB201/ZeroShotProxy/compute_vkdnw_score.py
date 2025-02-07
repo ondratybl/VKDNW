@@ -122,6 +122,7 @@ def init_model(model, method='kaiming_norm_fanin'):
         raise NotImplementedError
     return model
 
+
 def get_fisher(model, input, use_logits=True, params_grad_len=256, p=0.):
 
     model.eval()
@@ -137,6 +138,7 @@ def get_fisher(model, input, use_logits=True, params_grad_len=256, p=0.):
     torch.cuda.empty_cache()
 
     return fisher
+
 
 def cholesky_covariance(output):
 
@@ -169,38 +171,6 @@ def cholesky_covariance(output):
 
     return L.detach()
 
-"""
-def get_jacobian_index(model, input, param_idx):
-    # Convert model to functional form
-    func_model, params, buffers = make_functional_with_buffers(model)
-
-    # Extract the gradient parameter subset
-    params_grad = {k: v.flatten()[param_idx:param_idx + 1].detach() for (k, v) in model.named_parameters()}
-    params_grad = dict(list(params_grad.items())[:270])
-
-    def jacobian_sample(sample):
-        def compute_prediction(params_grad_tmp):
-            # Copy the original parameters and modify the specified gradients
-            params_copy = [p.clone() for p in params]
-            for i, (k, v) in enumerate(params_grad_tmp.items()):
-                param_shape = params_copy[i].shape
-                param = params_copy[i].flatten()
-                param[param_idx:param_idx + 1] = v
-                params_copy[i] = param.view(param_shape)
-
-            # Compute the prediction using the functional model
-            return func_model(params_copy, buffers, sample.unsqueeze(0)).squeeze(0)
-
-        return jacrev(compute_prediction)(params_grad)
-
-    # Apply vmap to efficiently compute Jacobians for each input in the batch
-    jacobian_dict = vmap(jacobian_sample)(input)
-
-    # Concatenate the Jacobian results across parameters
-    ret = torch.cat([torch.flatten(v, start_dim=2, end_dim=-1) for v in jacobian_dict.values()], dim=2)
-
-    return ret.detach()
-"""
 
 def get_jacobian_index(model, input, p_count, params_grad_len):
 
@@ -277,25 +247,8 @@ def compute_nas_score(model, gpu, trainloader, resolution, batch_size, init_meth
     # Dimenson
     info['vkdnw_dim'] = float(len(list(model.named_parameters())))
 
-    #Chisquare
-    bin_edges = [1]
-    for i in range(18):
-        bin_edges.append(bin_edges[-1] / 10)
-    bin_edges.append(0)
-    bin_edges = bin_edges[::-1]
-
-    f_obs, _ = np.histogram(lambdas.cpu().numpy(), bins=bin_edges)
-    info['vkdnw_chisquare'] = chisquare(f_obs).statistic
-
-    # Dispersion
-    trace = torch.trace(fisher_prob)
-    trace2 = torch.trace(torch.matmul(fisher_prob, fisher_prob))
-    info['vkdnw_dispersion'] = trace2/(trace**2) if trace > 0 else None
-    info['vkdnw_dispersion2'] = (trace ** 2)/trace2 if trace2 > 0 else None
-
     # Eigenvectors
     quantiles = torch.quantile(lambdas, torch.arange(0.1, 1., 0.1, device=lambdas.device))
     temp = quantiles / (torch.linalg.norm(quantiles, ord=1, keepdim=False).item() + 1e-10)
     info.update({'vkdnw_entropy': -(temp * torch.log(temp + 1e-10)).sum().cpu().numpy().item()})
-    info.update({'vkdnw_lambda_' + str(i): v.item() for (i, v) in enumerate(quantiles)})
     return info

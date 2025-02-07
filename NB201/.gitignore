@@ -5,3 +5,11 @@ api_data/
 *.pickle
 backup/
 *.pdf
+
+paper_preparation.ipynb
+tss_analyze.ipynb
+tss_choose_best.ipynb
+tss_general.ipynb
+tss_general_.py
+tss_supernet(gradsign).ipynb
+tss_utils.py
