@@ -1,9 +1,10 @@
 # Training-free Neural Architecture Search through Variance of Knowledge of Deep Network Weights
 
-** Official repository of the paper presented at CVPR 2025. **
+**Official repository of the paper presented at CVPR 2025**
 
-** Authors **: [Ondřej Týbl](https://fel.cvut.cz/en/faculty/people/33156-ondrej-tybl) [Lukáš Neumann](https://cmp.felk.cvut.cz/~neumann/projects.html)
-** Paper **: [CVPR2025](https://openaccess.thecvf.com/content/CVPR2025/papers/Tybl_Training-free_Neural_Architecture_Search_through_Variance_of_Knowledge_of_Deep_CVPR_2025_paper.pdf)
+**Authors**: [Ondřej Týbl](https://fel.cvut.cz/en/faculty/people/33156-ondrej-tybl) [Lukáš Neumann](https://cmp.felk.cvut.cz/~neumann/projects.html)
+
+**Paper**: [CVPR2025](https://openaccess.thecvf.com/content/CVPR2025/papers/Tybl_Training-free_Neural_Architecture_Search_through_Variance_of_Knowledge_of_Deep_CVPR_2025_paper.pdf)
 
 We are proud members of the [VRG at Czech Technical University in Prague](https://vrg.fel.cvut.cz). Join us if you are interested in cutting-edge research in neural networks and computer vision! [Click for more info.](https://cmp.felk.cvut.cz/~neumann/projects.html)
 
@@ -11,7 +12,6 @@ We are proud members of the [VRG at Czech Technical University in Prague](https:
 
 ## Abstract
 
-Abstract
 Deep learning has revolutionized computer vision, but it achieved its tremendous success using deep network architectures which are mostly hand-crafted and therefore
 likely suboptimal. Neural Architecture Search (NAS) aims
 to bridge this gap by following a well-defined optimization
