@@ -46,4 +46,36 @@ as using a new metric that we propose which we demonstrate is more informative f
 
 ## Install and run
 
-TODO
+Clone the repository
+```
+git clone https://github.com/ondratybl/VKDNW.git
+```
+Install the requirements:
+```
+cd VKDNW
+pip install -r requirements.txt
+```
+For the NAS-Bench-201 search space, prepare the API file from [NATS-Bench](https://github.com/D-X-Y/NATS-Bench) (e.g., ```./api_data/NATS-tss-v1_0-3ffb9-simple```) and run ```tss_general_.py``` for experiments.
+
+For the MobileNetV2 search space, prepare the ImageNet dataset and change accordingly ```ImageNet_MBV2/Dataloader/__init__.py``` and run ```ImageNet_MBV2/evolution_search_vkdnw.py``` for experiments.
+
+## Acknowledgement
+
+The implementation is based on the following projects (please cite the corresponding papers appropriately):
+- [NATS-Bench](https://github.com/D-X-Y/NATS-Bench)
+- [AutoDL-Projects](https://github.com/D-X-Y/AutoDL-Projects)
+- [ZenNAS](https://github.com/idstcv/ZenNAS)
+- [ZiCo](https://github.com/SLDGroup/ZiCo)
+- [TF_TAS](https://github.com/decemberzhou/TF_TAS)
+
+## Citation
+
+```
+@inproceedings{tybl2025training,
+  title={Training-free Neural Architecture Search through Variance of Knowledge of Deep Network Weights},
+  author={Tybl, Ondrej and Neumann, Lukas},
+  booktitle={Proceedings of the Computer Vision and Pattern Recognition Conference},
+  pages={14881--14890},
+  year={2025}
+}
+```
