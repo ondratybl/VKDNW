@@ -53,7 +53,7 @@ git clone https://github.com/ondratybl/VKDNW.git
 Install the requirements:
 ```
 cd VKDNW
-pip install -r requirements.txt
+conda env create -f environment.yml
 ```
 For the NAS-Bench-201 search space, prepare the API file from [NATS-Bench](https://github.com/D-X-Y/NATS-Bench) (e.g., ```./api_data/NATS-tss-v1_0-3ffb9-simple```) and run ```tss_general_.py``` for experiments.
 
