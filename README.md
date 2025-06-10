@@ -40,6 +40,7 @@ as using a new metric that we propose which we demonstrate is more informative f
 
 ## Results
 
+```{=latex}
 \begin{table}
     \centering    
 \begin{tabular}{lc|ccc|ccc|ccc}
@@ -74,7 +75,9 @@ $\text{(VKDNW+ZCS+GRAF)}_{m}$ (ours) & A & \textbf{0.859} & \textbf{0.971} & \te
 \end{tabular}
 \caption{Training-free NAS methods in the NAS-Bench-201 [10] search space, evaluated on three public datasets. Kendall's $\tau$ (KT), Spearman's $\rho$ (SPR) and Normalized Discounted Cumulative Gain ($\text{nDCG}$) are reported, results are averages of 5 independent runs. The Type column differentiates single (S) and aggregated (A) rankings. NAS-Bench-201 dataset includes 15,625 networks with validation accuracies on CIFAR-10, CIFAR-100, and ImageNet16-120 after 200 training epochs; networks have unique cell structures given by graph operations.}
 \end{table}
+```
 
+```{=latex}
 \begin{table}
   \centering
   \small
@@ -99,6 +102,7 @@ $\text{VKDNW}_{\text{agg}}$ (ours) & 480M & \textbf{78.8} & ZS & 0.4 \\
   \caption{Results on ImageNet-1K [9] in the MobileNetV2 search space, the size of the model is constrained to $\approx$450M FLOPS. We present performance of the network chosen by different proxies and trained afterwards on 480 epochs.
   }
 \end{table}
+```
 
 ## Install and run
 
