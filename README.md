@@ -8,7 +8,7 @@
 
 We are proud members of the [VRG at Czech Technical University in Prague](https://vrg.fel.cvut.cz). Join us if you are interested in cutting-edge research in neural networks and computer vision! [Click for more info.](https://cmp.felk.cvut.cz/~neumann/projects.html)
 
-![Open positions](figures/positions.png)
+![Open positions](positions.png)
 
 ## Abstract
 
