@@ -1,5 +1,4 @@
-# Training-free Neural Architecture Search through Variance of Knowledge of
-Deep Network Weights
+# Training-free Neural Architecture Search through Variance of Knowledge of Deep Network Weights
 
 ** Official repository of the paper presented at CVPR 2025. **
 
